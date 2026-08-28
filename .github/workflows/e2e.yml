@@ -26,7 +26,7 @@ jobs:
         run: |
           pacman -Sy --noconfirm --needed archlinux-keyring
           pacman -Su --noconfirm --needed \
-            arch-install-scripts btrfs-progs dosfstools gptfdisk util-linux \
+            arch-install-scripts btrfs-progs dosfstools gptfdisk util-linux multipath-tools \
             qemu-base edk2-ovmf expect curl git sudo
 
       - uses: actions/checkout@v4
@@ -56,17 +56,22 @@ jobs:
           truncate -s 20G disk.img
           sgdisk -Z disk.img
           sgdisk -n1:0:+1G -t1:ef00 -c1:EFI -n2:0:0 -t2:8300 -c2:root disk.img
-          LOOP=$(losetup --show -Pf disk.img); echo "LOOP=$LOOP" >> "$GITHUB_ENV"
-          mkfs.fat -F32 -n EFI "${LOOP}p1"
-          mkfs.btrfs -f -L arch "${LOOP}p2"
-          mount "${LOOP}p2" /mnt
+          LOOP=$(losetup --show -f disk.img); echo "LOOP=$LOOP" >> "$GITHUB_ENV"
+          kpartx -asv "$LOOP"
+          udevadm settle 2>/dev/null || true
+          M=/dev/mapper/$(basename "$LOOP")
+          P1=${M}p1; P2=${M}p2
+          ls -l "$P1" "$P2"
+          mkfs.fat -F32 -n EFI "$P1"
+          mkfs.btrfs -f -L arch "$P2"
+          mount "$P2" /mnt
           btrfs subvolume create /mnt/@
           btrfs subvolume create /mnt/@home
           umount /mnt
-          mount -o noatime,compress=zstd,subvol=@ "${LOOP}p2" /mnt
+          mount -o noatime,compress=zstd,subvol=@ "$P2" /mnt
           mkdir -p /mnt/home /mnt/boot
-          mount -o noatime,compress=zstd,subvol=@home "${LOOP}p2" /mnt/home
-          mount "${LOOP}p1" /mnt/boot
+          mount -o noatime,compress=zstd,subvol=@home "$P2" /mnt/home
+          mount "$P1" /mnt/boot
 
       - name: pacstrap joelson-base (+ nvidia)
         run: |
@@ -127,7 +132,8 @@ jobs:
           set -eux
           sync
           umount -R /mnt
-          losetup -d "$LOOP"
+          kpartx -d "$LOOP" || true
+          losetup -d "$LOOP" || true
           cp /usr/share/edk2/x64/OVMF_VARS.4m.fd vars.fd
           cat > drive.expect <<'EXP'
           set timeout 600
