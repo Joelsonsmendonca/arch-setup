@@ -65,9 +65,9 @@ jobs:
           KEYID=$(cat repo/KEYID)
           mkdir -p out/x86_64
 
-          # meta-pacotes deste repo
+          # meta-pacotes deste repo — -d: não checar/instalar deps, só empacotar a lista
           for p in packages/*/; do
-            su - builder -c "cd '$WS/$p' && makepkg -f --noconfirm --sign --key $KEYID"
+            su - builder -c "cd '$WS/$p' && makepkg -f -d --noconfirm --sign --key $KEYID"
             cp "$WS/$p"*.pkg.tar.zst* out/x86_64/
           done
 

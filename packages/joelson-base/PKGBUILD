@@ -4,7 +4,7 @@
 # recompila, assina e publica no repo; `pacman -Syu` sincroniza PC e notebook.
 
 pkgname=joelson-base
-pkgver=1.1.0
+pkgver=1.1.1
 pkgrel=1
 pkgdesc="Meta-pacote com todos os apps do meu desktop Hyprland (comum a PC e notebook)"
 arch=('any')
@@ -93,7 +93,7 @@ depends=(
   steam                 # requer [multilib] habilitado em /etc/pacman.conf
   proton-vpn-gtk-app
   android-tools
-  vesktop               # vem do meu próprio repo (build via aur/list.txt)
+  vesktop-bin           # vem do meu próprio repo (build via aur/list.txt)
 )
 
 package() {
