@@ -33,7 +33,9 @@ jobs:
           curl -fsSL https://www.joelsonmendonca.com/arch-setup/joelson-repo.gpg -o /tmp/k.gpg
           pacman-key --add /tmp/k.gpg
           pacman-key --lsign-key "$(curl -fsSL https://www.joelsonmendonca.com/arch-setup/KEYID)"
-          sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf
+          grep -q '^#\[multilib\]' /etc/pacman.conf \
+            && sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf \
+            || printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >> /etc/pacman.conf
           printf '\n[joelson]\nSigLevel = Required\nServer = https://www.joelsonmendonca.com/arch-setup/$arch\n' >> /etc/pacman.conf
           pacman -Syy
       - name: pacman -Sw (resolve + baixa + verifica assinatura de tudo)
