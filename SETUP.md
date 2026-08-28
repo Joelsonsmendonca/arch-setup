@@ -9,15 +9,15 @@
 
 Confirme que ficou no ar:
 ```bash
-curl -sI https://joelsonsmendonca.github.io/arch-setup/x86_64/joelson.db | head -1
+curl -sI https://www.joelsonmendonca.com/arch-setup/x86_64/joelson.db | head -1
 ```
 
 ## B) Em cada máquina já instalada (PC e notebook)
 
 ```bash
 # 1. confiar na chave do repo
-curl -O https://joelsonsmendonca.github.io/arch-setup/joelson-repo.gpg
-KEYID=$(curl -s https://joelsonsmendonca.github.io/arch-setup/KEYID)
+curl -O https://www.joelsonmendonca.com/arch-setup/joelson-repo.gpg
+KEYID=$(curl -s https://www.joelsonmendonca.com/arch-setup/KEYID)
 sudo pacman-key --add joelson-repo.gpg
 sudo pacman-key --lsign-key "$KEYID"
 
@@ -26,7 +26,7 @@ sudo tee -a /etc/pacman.conf <<'EOF'
 
 [joelson]
 SigLevel = Required
-Server = https://joelsonsmendonca.github.io/arch-setup/$arch
+Server = https://www.joelsonmendonca.com/arch-setup/$arch
 EOF
 
 # 3. habilitar [multilib] (necessário pro steam) — descomente as 2 linhas:
