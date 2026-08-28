@@ -45,8 +45,15 @@ jobs:
           cd out
           ISO=$(ls *.iso)
           sha256sum "$ISO" > "$ISO.sha256"
-          gh release delete latest --yes --cleanup-tag || true
-          gh release create latest \
-            --title "ISO mais recente" \
-            --notes "Build automático $(date -u +%F). Pacotes vêm do repo Pages no momento do boot." \
-            "$ISO" "$ISO.sha256"
+
+          gh release delete latest --yes || true
+          gh release create latest --title "ISO mais recente" \
+            --notes "Build automático $(date -u +%F). Pacotes vêm do repo Pages no momento do boot."
+
+          for i in 1 2 3 4 5; do
+            if gh release upload latest "$ISO" "$ISO.sha256" --clobber; then
+              exit 0
+            fi
+            echo "upload falhou, tentativa $i..."; sleep 20
+          done
+          exit 1
