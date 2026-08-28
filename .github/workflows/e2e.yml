@@ -114,8 +114,34 @@ jobs:
           echo 'joelson:joelson' | chpasswd
           echo 'root:root' | chpasswd
           echo '%wheel ALL=(ALL:ALL) NOPASSWD: ALL' > /etc/sudoers.d/wheel
-          systemctl enable getty@ttyS0.service
           CHROOT
+
+          # serviço que roda os checks no boot, imprime no console serial e desliga
+          cat > /mnt/usr/local/bin/e2e-check <<'EOF'
+          #!/bin/bash
+          echo "=====E2E BEGIN====="
+          pacman -Q joelson-base joelson-nvidia && echo "PKG_OK"
+          systemctl is-enabled sddm NetworkManager bluetooth firewalld && echo "SVC_OK"
+          runuser -u joelson -- test -L /home/joelson/.config/hypr && echo "HYPR_LINK_OK"
+          runuser -u joelson -- test -x /home/joelson/.local/bin/nvidia-offload && echo "OFFLOAD_OK"
+          runuser -u joelson -- git -C /home/joelson/dotfiles rev-parse --is-inside-work-tree && echo "DOTFILES_OK"
+          echo "=====E2E END====="
+          systemctl poweroff --no-block
+          EOF
+          chmod +x /mnt/usr/local/bin/e2e-check
+          cat > /mnt/etc/systemd/system/e2e-check.service <<'EOF'
+          [Unit]
+          Description=e2e check
+          After=multi-user.target
+          [Service]
+          Type=oneshot
+          StandardOutput=journal+console
+          StandardError=journal+console
+          ExecStart=/usr/local/bin/e2e-check
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          arch-chroot /mnt systemctl enable e2e-check.service
 
       - name: Rodar postinstall.sh como o usuário
         run: |
@@ -160,35 +186,19 @@ jobs:
           echo "OVMF_CODE=$OVMF_CODE  OVMF_VARS=$OVMF_VARS"
           test -f "$OVMF_CODE" && test -f "$OVMF_VARS"
           cp "$OVMF_VARS" vars.fd
-          export OVMF_CODE
-          cat > drive.expect <<'EXP'
-          set timeout 480
-          spawn qemu-system-x86_64 -accel tcg -m 2048 -smp 2 -nographic -no-reboot \
-            -drive if=pflash,format=raw,readonly=on,file=$env(OVMF_CODE) \
+
+          # sem login interativo: o e2e-check.service imprime no serial e desliga a VM
+          # -nographic já manda o console serial pro stdout
+          timeout 1200 qemu-system-x86_64 -accel tcg -m 2048 -smp 2 -nographic -no-reboot \
+            -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
             -drive if=pflash,format=raw,file=vars.fd \
-            -drive file=disk.img,format=raw,if=virtio
-          expect {
-            timeout { puts "\nTIMEOUT esperando login"; exit 2 }
-            -re "Emergency Mode|emergency shell|Failed to mount|Kernel panic" { puts "\nBOOT QUEBROU"; exit 3 }
-            "e2e login: "
-          }
-          send "root\r"
-          expect "Password: "
-          send "root\r"
-          expect "# "
-          send "pacman -Q joelson-base joelson-nvidia && echo PKG_OK\r"
-          expect "# "
-          send "systemctl is-enabled sddm NetworkManager && echo SVC_OK\r"
-          expect "# "
-          send "test -L /home/joelson/.config/hypr && echo HYPR_LINK_OK\r"
-          expect "# "
-          send "echo ===E2E_DONE===\r"
-          expect "===E2E_DONE==="
-          send "poweroff\r"
-          expect eof
-          EXP
-          expect drive.expect | tee vm.log
-          grep -q 'PKG_OK'       vm.log
-          grep -q 'SVC_OK'       vm.log
+            -drive file=disk.img,format=raw,if=virtio | tee vm.log || true
+
+          echo "----- resumo -----"
+          grep -E '=====E2E|_OK' vm.log || true
+          grep -q 'PKG_OK'      vm.log
+          grep -q 'SVC_OK'      vm.log
           grep -q 'HYPR_LINK_OK' vm.log
+          grep -q 'DOTFILES_OK' vm.log
+          ! grep -qE 'Emergency Mode|Kernel panic' vm.log
           echo "BOOT + RUNTIME OK"
