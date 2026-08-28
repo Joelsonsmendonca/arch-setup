@@ -32,7 +32,8 @@ graça no GitHub (Actions + Pages + Releases).
 
 ## Primeira configuração
 
-Ver [`SETUP.md`](SETUP.md).
+- Máquina que já roda Arch: [`SETUP.md`](SETUP.md) (passo B).
+- Máquina **sem sistema** (instalar do zero pela ISO): [`INSTALL.md`](INSTALL.md).
 
 ## Adicionar / remover um app
 

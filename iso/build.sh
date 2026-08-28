@@ -13,8 +13,18 @@ REPO_URL='https://www.joelsonmendonca.com/arch-setup/$arch'
 
 cp -r /usr/share/archiso/configs/releng "$PROFILE"
 
-# 1. repositório pessoal — vale para o pacstrap do build E fica no /etc/pacman.conf
-#    do sistema live (o mkarchiso copia esse pacman.conf para dentro da imagem).
+# 1a. habilita [multilib] (joelson-base depende de steam) — no pacman.conf do
+#     build E no que vai pra imagem (usado depois pelo reinstall.sh).
+if ! grep -q '^\[multilib\]' "$PROFILE/pacman.conf"; then
+  if grep -q '^#\[multilib\]' "$PROFILE/pacman.conf"; then
+    sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' "$PROFILE/pacman.conf"
+  else
+    printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >> "$PROFILE/pacman.conf"
+  fi
+fi
+
+# 1b. repositório pessoal — vale para o pacstrap do build E fica no /etc/pacman.conf
+#     do sistema live (o mkarchiso copia esse pacman.conf para dentro da imagem).
 cat >> "$PROFILE/pacman.conf" <<EOF
 
 [joelson]
