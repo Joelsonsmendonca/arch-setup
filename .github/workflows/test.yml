@@ -1,0 +1,72 @@
+name: test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'aur/**'
+      - 'postinstall.sh'
+      - 'iso/**'
+      - '.github/workflows/test.yml'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # O array `depends` do joelson-base resolve e baixa de verdade?
+  # (repos oficiais + multilib + [joelson]) — pega typo em nome de pacote.
+  resolve-pacotes:
+    runs-on: ubuntu-latest
+    container: { image: archlinux:latest }
+    steps:
+      - run: |
+          pacman -Sy --noconfirm --needed archlinux-keyring
+          pacman -Su --noconfirm --needed curl
+      - uses: actions/checkout@v4
+      - name: Confiar no repo [joelson] + multilib
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+          curl -fsSL https://www.joelsonmendonca.com/arch-setup/joelson-repo.gpg -o /tmp/k.gpg
+          pacman-key --add /tmp/k.gpg
+          pacman-key --lsign-key "$(curl -fsSL https://www.joelsonmendonca.com/arch-setup/KEYID)"
+          sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf
+          printf '\n[joelson]\nSigLevel = Required\nServer = https://www.joelsonmendonca.com/arch-setup/$arch\n' >> /etc/pacman.conf
+          pacman -Syy
+      - name: pacman -Sw (resolve + baixa + verifica assinatura de tudo)
+        run: pacman -Sw --noconfirm joelson-base joelson-nvidia
+
+  # O joelson.json é aceito pelo archinstall de verdade (não só JSON válido)?
+  archinstall-config:
+    runs-on: ubuntu-latest
+    container: { image: archlinux:latest }
+    steps:
+      - run: |
+          pacman -Sy --noconfirm --needed archlinux-keyring
+          pacman -Su --noconfirm --needed archinstall python
+      - uses: actions/checkout@v4
+      - name: JSON válido
+        run: python -c "import json;print(sorted(json.load(open('iso/airootfs/root/joelson.json'))))"
+      - name: Smoke --dry-run (não pode dar traceback / chave inválida)
+        run: |
+          set -o pipefail
+          archinstall --version || true
+          timeout 120 archinstall --config iso/airootfs/root/joelson.json --dry-run \
+            < /dev/null 2>&1 | tee dry.log || true
+          if grep -iE 'Traceback|invalid key|not a valid config|KeyError|unrecognized argument|json.decoder' dry.log; then
+            echo "::error::archinstall reclamou do joelson.json — ver dry.log"; exit 1
+          fi
+          echo "sem erro de schema no joelson.json"
+
+  lint:
+    runs-on: ubuntu-latest
+    container: { image: archlinux:latest }
+    steps:
+      - run: pacman -Sy --noconfirm --needed shellcheck
+      - uses: actions/checkout@v4
+      - run: |
+          bash -n postinstall.sh iso/build.sh iso/airootfs/root/install.sh
+          shellcheck -S warning postinstall.sh iso/build.sh iso/airootfs/root/install.sh
