@@ -131,15 +131,25 @@ jobs:
       - name: Boot real em qemu/KVM + checagem via login serial
         run: |
           set -eux
+          # postinstall roda gpg dentro do chroot -> gpg-agent/keyboxd seguram /mnt
+          arch-chroot /mnt gpgconf --kill all 2>/dev/null || true
+          arch-chroot /mnt bash -c 'pkill -9 -e gpg-agent dirmngr keyboxd scdaemon' 2>/dev/null || true
           sync
-          umount -R /mnt
+          fuser -k /mnt 2>/dev/null || true
+          sleep 2
+          umount -R /mnt || umount -Rl /mnt
           kpartx -d "$LOOP" || true
           losetup -d "$LOOP" || true
-          cp /usr/share/edk2/x64/OVMF_VARS.4m.fd vars.fd
+
+          OVMF_CODE=$(ls /usr/share/edk2/x64/OVMF_CODE*.fd /usr/share/OVMF/OVMF_CODE*.fd /usr/share/edk2-ovmf/x64/OVMF_CODE*.fd 2>/dev/null | head -1)
+          OVMF_VARS=$(ls /usr/share/edk2/x64/OVMF_VARS*.fd /usr/share/OVMF/OVMF_VARS*.fd /usr/share/edk2-ovmf/x64/OVMF_VARS*.fd 2>/dev/null | head -1)
+          test -f "$OVMF_CODE" && test -f "$OVMF_VARS"
+          cp "$OVMF_VARS" vars.fd
+          export OVMF_CODE
           cat > drive.expect <<'EXP'
           set timeout 600
           spawn qemu-system-x86_64 -accel tcg -m 2048 -smp 2 -nographic -no-reboot \
-            -drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd \
+            -drive if=pflash,format=raw,readonly=on,file=$env(OVMF_CODE) \
             -drive if=pflash,format=raw,file=vars.fd \
             -drive file=disk.img,format=raw,if=virtio
           expect {
