@@ -1,0 +1,23 @@
+_rebuild_initramfs() {
+  echo ":: joelson-nvidia: regenerando o initramfs (mkinitcpio -P)"
+  if ! mkinitcpio -P; then
+    echo "!! mkinitcpio falhou — rode 'mkinitcpio -P' manualmente antes de reiniciar" >&2
+  fi
+}
+
+post_install() {
+  _rebuild_initramfs
+  cat <<'EOF'
+  -> Driver NVIDIA configurado. Reinicie para o nvidia assumir a GPU
+     (confira depois com 'nvidia-smi' e 'lsmod | grep nouveau' vazio).
+EOF
+}
+
+post_upgrade() {
+  _rebuild_initramfs
+}
+
+post_remove() {
+  # os drop-ins já foram removidos pelo pacman; rebuild pra tirar os módulos
+  _rebuild_initramfs
+}

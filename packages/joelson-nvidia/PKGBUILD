@@ -1,15 +1,25 @@
 # Maintainer: Joelson <joelsonsantos181040@gmail.com>
 # Parte específica de NVIDIA — instalar junto com joelson-base nas máquinas
 # que têm GPU NVIDIA:  pacman -S joelson-base joelson-nvidia
+#
+# Além do driver, este pacote garante o boot correto numa máquina de GPU
+# única NVIDIA (que é o caso do desktop):
+#   - módulos nvidia* no initramfs, senão o hook `kms` sobe o nouveau primeiro,
+#     prende a GPU e o Aquamarine/Hyprland não acha driver -> sessão não inicia
+#   - nvidia_drm modeset=1 (obrigatório pro Wayland) + fbdev=1 (console legível)
+#   - blacklist nouveau explícito (não depende só do /usr/lib/modprobe.d/)
+# O .install regenera o initramfs no install/upgrade/remove, então um simples
+# `pacman -Syu` aplica a correção nas duas máquinas.
 
 pkgname=joelson-nvidia
 pkgver=1.0.0
-pkgrel=1
-pkgdesc="Stack NVIDIA do meu desktop (driver aberto + VA-API)"
+pkgrel=2
+pkgdesc="Stack NVIDIA do meu desktop (driver aberto + VA-API + boot/KMS)"
 arch=('any')
 url="https://github.com/Joelsonsmendonca/arch-setup"
 license=('MIT')
 groups=('joelson')
+install="$pkgname.install"
 
 depends=(
   nvidia-open
@@ -18,4 +28,17 @@ depends=(
 
 package() {
   install -Dm644 /dev/null "$pkgdir/usr/share/$pkgname/marker"
+
+  # módulos no initramfs — nvidia carrega cedo e binda a GPU antes do nouveau
+  install -Dm644 /dev/stdin "$pkgdir/etc/mkinitcpio.conf.d/joelson-nvidia.conf" <<'EOF'
+# joelson-nvidia: módulos NVIDIA no initramfs (early KMS, impede o nouveau)
+MODULES+=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)
+EOF
+
+  # KMS pela NVIDIA + fbdev, e nouveau fora do caminho
+  install -Dm644 /dev/stdin "$pkgdir/etc/modprobe.d/joelson-nvidia.conf" <<'EOF'
+# joelson-nvidia
+blacklist nouveau
+options nvidia_drm modeset=1 fbdev=1
+EOF
 }
