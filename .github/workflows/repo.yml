@@ -26,6 +26,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Dependências
         run: |
@@ -44,31 +47,36 @@ jobs:
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
-          for home in /root /home/builder; do
-            install -d -m700 "$home/.gnupg"
-            echo 'pinentry-mode loopback' > "$home/.gnupg/gpg.conf"
-          done
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-          echo "$GPG_PRIVATE_KEY" | su builder -c 'gpg --batch --import'
-          chown -R builder:builder /home/builder/.gnupg
+          set -eu
+          # keyring do usuário do step (roda repo-add --sign)
+          install -d -m700 "$HOME/.gnupg"
+          echo 'pinentry-mode loopback' > "$HOME/.gnupg/gpg.conf"
+          printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --import
+          # keyring do builder (roda makepkg --sign)
+          install -d -m700 -o builder -g builder /home/builder/.gnupg
+          echo 'pinentry-mode loopback' > /home/builder/.gnupg/gpg.conf
+          chown builder:builder /home/builder/.gnupg/gpg.conf
+          printf '%s\n' "$GPG_PRIVATE_KEY" | su - builder -c 'gpg --batch --import'
 
       - name: Compilar e assinar pacotes
         run: |
           set -euxo pipefail
+          WS="$PWD"
           KEYID=$(cat repo/KEYID)
           mkdir -p out/x86_64
 
           # meta-pacotes deste repo
           for p in packages/*/; do
-            su builder -c "cd '$PWD/$p' && makepkg -f --noconfirm --sign --key $KEYID"
-            cp "$p"*.pkg.tar.zst* out/x86_64/
+            su - builder -c "cd '$WS/$p' && makepkg -f --noconfirm --sign --key $KEYID"
+            cp "$WS/$p"*.pkg.tar.zst* out/x86_64/
           done
 
           # pacotes do AUR
-          grep -vE '^\s*#|^\s*$' aur/list.txt | while read -r pkg; do
-            su builder -c "git clone --depth 1 https://aur.archlinux.org/$pkg.git /tmp/$pkg"
-            su builder -c "cd /tmp/$pkg && makepkg -s --noconfirm --sign --key $KEYID"
-            cp /tmp/$pkg/*.pkg.tar.zst* out/x86_64/
+          grep -vE '^[[:space:]]*#|^[[:space:]]*$' aur/list.txt | while read -r pkg; do
+            rm -rf "/tmp/$pkg"
+            su - builder -c "git clone --depth 1 https://aur.archlinux.org/$pkg.git /tmp/$pkg"
+            su - builder -c "cd /tmp/$pkg && makepkg -s --noconfirm --sign --key $KEYID"
+            cp "/tmp/$pkg"/*.pkg.tar.zst* out/x86_64/
           done
 
       - name: Montar banco do repo
@@ -77,7 +85,7 @@ jobs:
           KEYID=$(cat repo/KEYID)
           cd out/x86_64
           repo-add --sign --key "$KEYID" joelson.db.tar.gz *.pkg.tar.zst
-          # Pages não segue symlink — materializa db/files como arquivo real
+          # Pages não serve symlink — materializa db/files como arquivo real
           for l in joelson.db joelson.db.sig joelson.files joelson.files.sig; do
             [ -L "$l" ] && cp --remove-destination "$(readlink -f "$l")" "$l"
           done
