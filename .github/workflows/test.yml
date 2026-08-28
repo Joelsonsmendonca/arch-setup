@@ -39,7 +39,9 @@ jobs:
           printf '\n[joelson]\nSigLevel = Required\nServer = https://www.joelsonmendonca.com/arch-setup/$arch\n' >> /etc/pacman.conf
           pacman -Syy
       - name: pacman -Sw (resolve + baixa + verifica assinatura de tudo)
-        run: pacman -Sw --noconfirm joelson-base joelson-nvidia
+        run: |
+          # mesma linha do postinstall.sh (pipewire-jack explícito)
+          pacman -Sw --noconfirm --needed pipewire-jack joelson-base joelson-nvidia
 
   # O joelson.json é aceito pelo archinstall de verdade (não só JSON válido)?
   archinstall-config:

@@ -43,7 +43,8 @@ EOF
 fi
 
 msg "Instalando pacotes"
-pkgs=(joelson-base)
+# pipewire-jack explícito: resolve "2 providers for jack" sem prompt (senão pega jack2 e conflita)
+pkgs=(pipewire-jack joelson-base)
 if lspci 2>/dev/null | grep -Eqi 'vga.*nvidia|3d.*nvidia'; then
   pkgs+=(joelson-nvidia); msg "  GPU NVIDIA detectada -> joelson-nvidia"
 fi

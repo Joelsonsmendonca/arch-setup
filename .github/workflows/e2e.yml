@@ -76,7 +76,8 @@ jobs:
       - name: pacstrap joelson-base (+ nvidia)
         run: |
           set -eux
-          pacstrap -K /mnt base linux linux-firmware amd-ucode joelson-base joelson-nvidia
+          # pipewire-jack explícito: resolve o "2 providers for jack" (senão pega jack2 e conflita)
+          pacstrap -K /mnt base linux linux-firmware amd-ucode pipewire-jack joelson-base joelson-nvidia
           genfstab -U /mnt >> /mnt/etc/fstab
           cp /etc/pacman.conf /mnt/etc/pacman.conf
           cp /tmp/joelson.gpg /mnt/root/joelson-repo.gpg
