@@ -78,7 +78,15 @@ jobs:
           set -eux
           # pipewire-jack explícito: resolve o "2 providers for jack" (senão pega jack2 e conflita)
           pacstrap -K /mnt base linux linux-firmware amd-ucode pipewire-jack joelson-base joelson-nvidia
-          genfstab -U /mnt >> /mnt/etc/fstab
+          # fstab à mão (genfstab pega lixo do overlayfs do container)
+          RUUID=$(findmnt -no UUID -T /mnt)
+          BUUID=$(findmnt -no UUID -T /mnt/boot)
+          cat > /mnt/etc/fstab <<EOF
+          UUID=$RUUID /     btrfs rw,noatime,compress=zstd,subvol=@     0 0
+          UUID=$RUUID /home btrfs rw,noatime,compress=zstd,subvol=@home 0 0
+          UUID=$BUUID /boot vfat  rw,noatime,fmask=0137,dmask=0027      0 2
+          EOF
+          sed -i 's/^ *//' /mnt/etc/fstab
           cp /etc/pacman.conf /mnt/etc/pacman.conf
           cp /tmp/joelson.gpg /mnt/root/joelson-repo.gpg
 
@@ -154,13 +162,14 @@ jobs:
           cp "$OVMF_VARS" vars.fd
           export OVMF_CODE
           cat > drive.expect <<'EXP'
-          set timeout 600
+          set timeout 480
           spawn qemu-system-x86_64 -accel tcg -m 2048 -smp 2 -nographic -no-reboot \
             -drive if=pflash,format=raw,readonly=on,file=$env(OVMF_CODE) \
             -drive if=pflash,format=raw,file=vars.fd \
             -drive file=disk.img,format=raw,if=virtio
           expect {
             timeout { puts "\nTIMEOUT esperando login"; exit 2 }
+            -re "Emergency Mode|emergency shell|Failed to mount|Kernel panic" { puts "\nBOOT QUEBROU"; exit 3 }
             "e2e login: "
           }
           send "root\r"
