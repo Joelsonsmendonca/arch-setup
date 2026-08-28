@@ -1,0 +1,15 @@
+
+  ── ISO do desktop do Joelson ──────────────────────────────
+
+  1. Conecte a internet:
+       cabo  -> já funciona
+       wifi  -> iwctl station wlan0 connect "SUA_REDE"
+
+  2. Instale:
+       bash /root/install.sh
+
+  3. No primeiro boot da máquina nova, logue e rode:
+       curl -fsSL https://www.joelsonmendonca.com/arch-setup/postinstall.sh | bash
+
+  ───────────────────────────────────────────────────────────
+

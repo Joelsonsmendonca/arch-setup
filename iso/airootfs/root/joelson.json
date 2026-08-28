@@ -1,0 +1,18 @@
+{
+  "kernels": ["linux"],
+  "ntp": true,
+  "timezone": "America/Recife",
+  "locale_config": {
+    "kb_layout": "br-abnt2",
+    "sys_enc": "UTF-8",
+    "sys_lang": "pt_BR.UTF-8"
+  },
+  "network_config": { "type": "nm" },
+  "bootloader_config": {
+    "bootloader": "Systemd-boot",
+    "uki": false,
+    "removable": false
+  },
+  "swap": true,
+  "packages": ["git", "curl", "base-devel", "reflector", "vim"]
+}

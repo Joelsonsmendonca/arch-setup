@@ -14,14 +14,21 @@ curl -sI https://www.joelsonmendonca.com/arch-setup/x86_64/joelson.db | head -1
 
 ## B) Em cada máquina já instalada (PC e notebook)
 
+Um comando faz tudo (confia na chave, adiciona o repo + multilib, instala
+`joelson-base` (+ `joelson-nvidia` se houver NVIDIA), liga serviços, monta dotfiles):
+
 ```bash
-# 1. confiar na chave do repo
+curl -fsSL https://www.joelsonmendonca.com/arch-setup/postinstall.sh | bash
+```
+
+<details><summary>o que ele faz, na mão</summary>
+
+```bash
 curl -O https://www.joelsonmendonca.com/arch-setup/joelson-repo.gpg
 KEYID=$(curl -s https://www.joelsonmendonca.com/arch-setup/KEYID)
 sudo pacman-key --add joelson-repo.gpg
 sudo pacman-key --lsign-key "$KEYID"
 
-# 2. adicionar o repo ao /etc/pacman.conf (no fim do arquivo)
 sudo tee -a /etc/pacman.conf <<'EOF'
 
 [joelson]
@@ -29,13 +36,10 @@ SigLevel = Required
 Server = https://www.joelsonmendonca.com/arch-setup/$arch
 EOF
 
-# 3. habilitar [multilib] (necessário pro steam) — descomente as 2 linhas:
-sudo sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf
-
-# 4. instalar o conjunto todo
-sudo pacman -Syu joelson-base joelson-nvidia   # notebook/PC com NVIDIA
-# sudo pacman -Syu joelson-base                # máquina sem NVIDIA
+sudo sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf   # steam
+sudo pacman -Syu joelson-base joelson-nvidia
 ```
+</details>
 
 A partir daí, **`pacman` já vai remover** o que sair do meta-pacote? Não —
 pacotes ficam como dependência. Para limpar órfãos quando você tirar algo da
@@ -78,9 +82,6 @@ sudo systemctl enable --now joelson-update.timer
 
 ## D) Reinstalar do zero (ISO)
 
-1. Baixe a ISO em *Releases → latest*, grave num pendrive
-   (`dd bs=4M if=arch-*.iso of=/dev/sdX status=progress oflag=sync`).
-2. Boot, conecte a internet (`iwctl`), particione/monte o disco em `/mnt`.
-3. `bash /root/reinstall.sh` — instala `base` + `joelson-base` do repo.
-4. Finalize (usuário, locale, bootloader — o script lista os comandos) e clone
-   os [dotfiles](https://github.com/Joelsonsmendonca/hyprdots).
+Ver [`INSTALL.md`](INSTALL.md). Resumo: grava a ISO num pendrive, boota,
+`bash /root/install.sh` (abre o **archinstall** já configurado — só escolhe disco,
+hostname e senhas), e no primeiro boot roda o comando da seção B.

@@ -7,6 +7,7 @@ on:
       - 'packages/**'
       - 'aur/**'
       - 'repo/**'
+      - 'postinstall.sh'
       - '.github/workflows/repo.yml'
   schedule:
     - cron: '0 6 * * 1'          # segunda 06:00 UTC — captura updates do AUR
@@ -91,10 +92,11 @@ jobs:
           done
           ls -la
 
-      - name: Publicar chave pública e landing
+      - name: Publicar chave pública, postinstall e landing
         run: |
           cp repo/joelson-repo.gpg repo/joelson-repo.asc repo/KEYID out/
           cp repo/index.html out/
+          cp postinstall.sh out/
 
       - uses: actions/upload-pages-artifact@v3
         with:

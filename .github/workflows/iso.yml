@@ -25,6 +25,13 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      - name: Validar scripts e config
+        run: |
+          pacman -S --noconfirm --needed shellcheck python
+          bash -n iso/build.sh iso/airootfs/root/install.sh postinstall.sh
+          shellcheck -S warning iso/build.sh postinstall.sh iso/airootfs/root/install.sh || true
+          python -c "import json,sys; json.load(open('iso/airootfs/root/joelson.json')); print('joelson.json OK')"
+
       - name: Confiar na chave do repo pessoal
         run: |
           pacman-key --init

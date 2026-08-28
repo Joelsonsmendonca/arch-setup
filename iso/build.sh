@@ -37,15 +37,16 @@ if [ -s "$HERE/packages.extra.x86_64" ]; then
   grep -vE '^\s*#|^\s*$' "$HERE/packages.extra.x86_64" >> "$PROFILE/packages.x86_64"
 fi
 
-# 3. overlay do airootfs (scripts de reinstalação etc.)
+# 3. overlay do airootfs (wrapper do archinstall + config)
 if [ -d "$HERE/airootfs" ]; then
   cp -rT "$HERE/airootfs" "$PROFILE/airootfs"
 fi
 
-# 4. chave pública + KEYID dentro da ISO, para o reinstall.sh confiar no repo
+# 4. artefatos do repo dentro da ISO (chave/KEYID pra offline, postinstall como fallback)
 install -Dm644 "$ROOT/repo/joelson-repo.gpg" "$PROFILE/airootfs/root/joelson-repo.gpg"
 install -Dm644 "$ROOT/repo/KEYID"            "$PROFILE/airootfs/root/KEYID"
-chmod +x "$PROFILE/airootfs/root/reinstall.sh" 2>/dev/null || true
+install -Dm755 "$ROOT/postinstall.sh"        "$PROFILE/airootfs/root/postinstall.sh"
+chmod +x "$PROFILE/airootfs/root/install.sh" 2>/dev/null || true
 
 mkdir -p "$OUT"
 mkarchiso -v -w "$WORK" -o "$OUT" "$PROFILE"

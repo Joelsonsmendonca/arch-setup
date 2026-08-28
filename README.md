@@ -24,8 +24,12 @@ graça no GitHub (Actions + Pages + Releases).
 - **`packages/joelson-nvidia/`** — parte específica de NVIDIA (instala junto).
 - **`aur/list.txt`** — pacotes do AUR que o CI compila e serve no meu repo
   (assim `pacman` resolve tudo sem `yay`/`paru` nas máquinas).
-- **`iso/`** — customização do profile `releng` do archiso: injeta o repo
-  `[joelson]` e adiciona `iso/airootfs/root/reinstall.sh`.
+- **`iso/`** — customização do profile `releng` do archiso: injeta `[joelson]` +
+  `multilib` no `pacman.conf` e adiciona `iso/airootfs/root/install.sh` (wrapper do
+  **archinstall** com `joelson.json` já preenchido).
+- **`postinstall.sh`** — publicado no Pages; um comando que põe qualquer máquina no
+  trilho (repo + `joelson-base` + serviços + dotfiles). Fase 2 da instalação e
+  também o "passo B" pra PCs que já rodam Arch.
 - **`repo/`** — chave pública GPG (`joelson-repo.gpg`) e `KEYID`. A **chave
   privada** vive só no secret `GPG_PRIVATE_KEY` do repo, nunca é commitada.
 - Dotfiles ficam em outro repo: **[hyprdots](https://github.com/Joelsonsmendonca/hyprdots)**.
