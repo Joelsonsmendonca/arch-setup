@@ -141,8 +141,15 @@ jobs:
           kpartx -d "$LOOP" || true
           losetup -d "$LOOP" || true
 
-          OVMF_CODE=$(ls /usr/share/edk2/x64/OVMF_CODE*.fd /usr/share/OVMF/OVMF_CODE*.fd /usr/share/edk2-ovmf/x64/OVMF_CODE*.fd 2>/dev/null | head -1)
-          OVMF_VARS=$(ls /usr/share/edk2/x64/OVMF_VARS*.fd /usr/share/OVMF/OVMF_VARS*.fd /usr/share/edk2-ovmf/x64/OVMF_VARS*.fd 2>/dev/null | head -1)
+          for c in /usr/share/edk2/x64/OVMF_CODE.4m.fd /usr/share/edk2-ovmf/x64/OVMF_CODE.4m.fd \
+                   /usr/share/edk2/x64/OVMF_CODE.fd /usr/share/OVMF/OVMF_CODE.fd; do
+            [ -f "$c" ] && OVMF_CODE=$c && break
+          done
+          for v in /usr/share/edk2/x64/OVMF_VARS.4m.fd /usr/share/edk2-ovmf/x64/OVMF_VARS.4m.fd \
+                   /usr/share/edk2/x64/OVMF_VARS.fd /usr/share/OVMF/OVMF_VARS.fd; do
+            [ -f "$v" ] && OVMF_VARS=$v && break
+          done
+          echo "OVMF_CODE=$OVMF_CODE  OVMF_VARS=$OVMF_VARS"
           test -f "$OVMF_CODE" && test -f "$OVMF_VARS"
           cp "$OVMF_VARS" vars.fd
           export OVMF_CODE
