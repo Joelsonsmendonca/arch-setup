@@ -1,0 +1,21 @@
+# Maintainer: Joelson <joelsonsantos181040@gmail.com>
+# Parte específica de NVIDIA — instalar junto com joelson-base nas máquinas
+# que têm GPU NVIDIA:  pacman -S joelson-base joelson-nvidia
+
+pkgname=joelson-nvidia
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Stack NVIDIA do meu desktop (driver aberto + VA-API)"
+arch=('any')
+url="https://github.com/Joelsonsmendonca/arch-setup"
+license=('MIT')
+groups=('joelson')
+
+depends=(
+  nvidia-open
+  libva-nvidia-driver
+)
+
+package() {
+  install -Dm644 /dev/null "$pkgdir/usr/share/$pkgname/marker"
+}

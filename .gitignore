@@ -1,0 +1,8 @@
+out/
+*.pkg.tar.zst
+*.pkg.tar.zst.sig
+pkg/
+src/
+*.iso
+*.log
+/tmp/

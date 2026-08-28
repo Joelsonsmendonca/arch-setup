@@ -1,0 +1,32 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>repo joelson · Arch</title>
+<style>
+  body{font:16px/1.6 system-ui,sans-serif;max-width:44rem;margin:3rem auto;padding:0 1rem;color:#222;background:#fafafa}
+  code,pre{background:#eee;border-radius:6px}
+  code{padding:.1em .35em}
+  pre{padding:1rem;overflow-x:auto}
+  h1{margin-bottom:0}
+  @media(prefers-color-scheme:dark){body{background:#111;color:#ddd}code,pre{background:#222}}
+</style>
+<h1>repo <code>joelson</code></h1>
+<p>Repositório pacman pessoal — apps do meu desktop Hyprland, para sincronizar PC e notebook.</p>
+
+<h2>Configurar numa máquina nova</h2>
+<pre>curl -O https://joelsonsmendonca.github.io/arch-setup/joelson-repo.gpg
+sudo pacman-key --add joelson-repo.gpg
+sudo pacman-key --lsign-key $(curl -s https://joelsonsmendonca.github.io/arch-setup/KEYID)
+
+sudo tee -a /etc/pacman.conf &lt;&lt;'EOF'
+
+[joelson]
+SigLevel = Required
+Server = https://joelsonsmendonca.github.io/arch-setup/$arch
+EOF
+
+# habilite [multilib] no /etc/pacman.conf (steam), depois:
+sudo pacman -Syu joelson-base joelson-nvidia</pre>
+
+<h2>Dia a dia</h2>
+<pre>sudo pacman -Syu</pre>
+<p>Fonte: <a href="https://github.com/Joelsonsmendonca/arch-setup">github.com/Joelsonsmendonca/arch-setup</a></p>

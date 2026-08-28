@@ -1,0 +1,9 @@
+# Pacotes adicionais dentro da ISO live (além do conjunto padrão do releng).
+# Mantenha enxuto — a ISO não precisa ter todos os apps, eles são baixados do
+# repo pessoal na hora de instalar.
+git
+wget
+rsync
+neovim
+btrfs-progs
+snapper

@@ -1,0 +1,103 @@
+name: repo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'aur/**'
+      - 'repo/**'
+      - '.github/workflows/repo.yml'
+  schedule:
+    - cron: '0 6 * * 1'          # segunda 06:00 UTC — captura updates do AUR
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Dependências
+        run: |
+          pacman -Sy --noconfirm --needed archlinux-keyring
+          pacman -Su --noconfirm --needed base-devel git pacman-contrib
+
+      - uses: actions/checkout@v4
+
+      - name: Usuário de build
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+          chown -R builder:builder .
+
+      - name: Importar chave de assinatura
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          for home in /root /home/builder; do
+            install -d -m700 "$home/.gnupg"
+            echo 'pinentry-mode loopback' > "$home/.gnupg/gpg.conf"
+          done
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "$GPG_PRIVATE_KEY" | su builder -c 'gpg --batch --import'
+          chown -R builder:builder /home/builder/.gnupg
+
+      - name: Compilar e assinar pacotes
+        run: |
+          set -euxo pipefail
+          KEYID=$(cat repo/KEYID)
+          mkdir -p out/x86_64
+
+          # meta-pacotes deste repo
+          for p in packages/*/; do
+            su builder -c "cd '$PWD/$p' && makepkg -f --noconfirm --sign --key $KEYID"
+            cp "$p"*.pkg.tar.zst* out/x86_64/
+          done
+
+          # pacotes do AUR
+          grep -vE '^\s*#|^\s*$' aur/list.txt | while read -r pkg; do
+            su builder -c "git clone --depth 1 https://aur.archlinux.org/$pkg.git /tmp/$pkg"
+            su builder -c "cd /tmp/$pkg && makepkg -s --noconfirm --sign --key $KEYID"
+            cp /tmp/$pkg/*.pkg.tar.zst* out/x86_64/
+          done
+
+      - name: Montar banco do repo
+        run: |
+          set -euxo pipefail
+          KEYID=$(cat repo/KEYID)
+          cd out/x86_64
+          repo-add --sign --key "$KEYID" joelson.db.tar.gz *.pkg.tar.zst
+          # Pages não segue symlink — materializa db/files como arquivo real
+          for l in joelson.db joelson.db.sig joelson.files joelson.files.sig; do
+            [ -L "$l" ] && cp --remove-destination "$(readlink -f "$l")" "$l"
+          done
+          ls -la
+
+      - name: Publicar chave pública e landing
+        run: |
+          cp repo/joelson-repo.gpg repo/joelson-repo.asc repo/KEYID out/
+          cp repo/index.html out/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,102 @@
+# Maintainer: Joelson <joelsonsantos181040@gmail.com>
+# Meta-pacote: instala/mantém todos os apps comuns do meu desktop Hyprland.
+# Editar o array `depends`, dar bump em pkgrel/pkgver e `git push` — o CI
+# recompila, assina e publica no repo; `pacman -Syu` sincroniza PC e notebook.
+
+pkgname=joelson-base
+pkgver=1.1.0
+pkgrel=1
+pkgdesc="Meta-pacote com todos os apps do meu desktop Hyprland (comum a PC e notebook)"
+arch=('any')
+url="https://github.com/Joelsonsmendonca/arch-setup"
+license=('MIT')
+groups=('joelson')
+
+depends=(
+  # --- base / ferramentas de sistema ---
+  base-devel
+  git
+  github-cli
+  sudo
+  reflector
+  wget
+  vim
+  nano
+  htop
+  btop
+  smartmontools
+
+  # --- boot / disco / kernel tooling ---
+  efibootmgr
+  mkinitcpio
+  btrfs-progs
+  lvm2
+  snapper
+  zram-generator
+
+  # --- Hyprland / Wayland desktop ---
+  hyprland
+  uwsm
+  xdg-desktop-portal-hyprland
+  xdg-utils
+  waybar
+  swaync
+  dunst
+  kitty
+  wofi
+  fuzzel
+  rofi-wayland
+  dolphin
+  polkit-kde-agent
+  qt5-wayland
+  qt6-wayland
+  brightnessctl
+  grim
+  slurp
+  wl-clipboard
+  playerctl
+
+  # --- áudio (PipeWire) ---
+  pipewire
+  pipewire-alsa
+  pipewire-jack
+  pipewire-pulse
+  wireplumber
+  libpulse
+  gst-plugin-pipewire
+  pavucontrol
+
+  # --- rede / bluetooth ---
+  networkmanager
+  network-manager-applet
+  iwd
+  iw
+  wireless-regdb
+  bluez
+  bluez-utils
+  blueman
+  firewalld
+
+  # --- energia ---
+  power-profiles-daemon
+
+  # --- login manager ---
+  sddm
+
+  # --- fontes ---
+  ttf-jetbrains-mono-nerd
+  noto-fonts-cjk
+
+  # --- apps ---
+  firefox
+  code
+  steam                 # requer [multilib] habilitado em /etc/pacman.conf
+  proton-vpn-gtk-app
+  android-tools
+  vesktop               # vem do meu próprio repo (build via aur/list.txt)
+)
+
+package() {
+  install -Dm644 /dev/null "$pkgdir/usr/share/$pkgname/marker"
+  echo "$pkgver-$pkgrel" > "$pkgdir/usr/share/$pkgname/version"
+}
