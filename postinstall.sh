@@ -10,7 +10,6 @@ set -euo pipefail
 
 REPO='https://www.joelsonmendonca.com/arch-setup'
 DOTFILES_GIT='https://github.com/Joelsonsmendonca/hyprdots.git'
-APPS=(hypr kitty rofi waybar wofi fuzzel uwsm pipewire swaync)
 
 msg(){ printf '\e[32m==>\e[0m %s\n' "$*"; }
 
@@ -55,19 +54,13 @@ sudo systemctl enable --now NetworkManager
 sudo systemctl enable sddm bluetooth firewalld
 
 msg "Dotfiles (hyprdots)"
-[[ -d "$HOME/dotfiles" ]] || git clone "$DOTFILES_GIT" "$HOME/dotfiles"
-mkdir -p "$HOME/.config" "$HOME/.local/bin" "$HOME/.config/systemd/user"
-for app in "${APPS[@]}"; do
-  if [[ -e "$HOME/.config/$app" && ! -L "$HOME/.config/$app" ]]; then
-    mv "$HOME/.config/$app" "$HOME/.config/$app.bak.$(date +%s)"
-  fi
-  ln -sfn "$HOME/dotfiles/common/$app" "$HOME/.config/$app"
-done
-ln -sfn "$HOME/dotfiles/common/systemd/user/app-nm\x2dapplet@autostart.service.d" \
-        "$HOME/.config/systemd/user/app-nm\x2dapplet@autostart.service.d" 2>/dev/null || true
-systemctl --user daemon-reload 2>/dev/null || true
-[[ -e "$HOME/.config/hypr/scripts/nvidia-offload.sh" ]] && \
-  ln -sfn "$HOME/.config/hypr/scripts/nvidia-offload.sh" "$HOME/.local/bin/nvidia-offload"
+if [[ -d "$HOME/dotfiles/.git" ]]; then
+  git -C "$HOME/dotfiles" pull --ff-only || true
+else
+  git clone "$DOTFILES_GIT" "$HOME/dotfiles"
+fi
+# a lógica de symlink vive no próprio repo de dotfiles (fonte única)
+bash "$HOME/dotfiles/bootstrap.sh"
 
 cat <<EOF
 
