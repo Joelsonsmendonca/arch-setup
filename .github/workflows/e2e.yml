@@ -1,0 +1,161 @@
+name: e2e
+
+# Teste ponta-a-ponta: instala um sistema joelson-base num disco virtual (o que o
+# archinstall faria), roda o postinstall.sh de verdade, e BOOTA o disco em qemu/KVM
+# pra provar que o resultado liga e o sistema funciona.
+#
+# Só manual (é pesado, ~15-20 min).
+
+on:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --privileged
+    env:
+      REPO_URL: https://www.joelsonmendonca.com/arch-setup
+    steps:
+      - name: Ferramentas
+        run: |
+          pacman -Sy --noconfirm --needed archlinux-keyring
+          pacman -Su --noconfirm --needed \
+            arch-install-scripts btrfs-progs dosfstools gptfdisk util-linux \
+            qemu-base edk2-ovmf expect curl git sudo
+
+      - uses: actions/checkout@v4
+
+      - name: Repo [joelson] + multilib no host
+        run: |
+          set -eux
+          pacman-key --init
+          pacman-key --populate archlinux
+          curl -fsSL "$REPO_URL/joelson-repo.gpg" -o /tmp/joelson.gpg
+          KEYID=$(curl -fsSL "$REPO_URL/KEYID"); echo "KEYID=$KEYID" >> "$GITHUB_ENV"
+          pacman-key --add /tmp/joelson.gpg
+          pacman-key --lsign-key "$KEYID"
+          if grep -q '^#\[multilib\]' /etc/pacman.conf; then
+            sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf
+          else
+            printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >> /etc/pacman.conf
+          fi
+          printf '\n[joelson]\nSigLevel = Required\nServer = %s/$arch\n' "$REPO_URL" >> /etc/pacman.conf
+          echo 'Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch' > /etc/pacman.d/mirrorlist
+          pacman -Syy
+
+      - name: Disco virtual + particionamento (GPT/UEFI + btrfs @,@home)
+        run: |
+          set -eux
+          modprobe loop || true
+          truncate -s 20G disk.img
+          sgdisk -Z disk.img
+          sgdisk -n1:0:+1G -t1:ef00 -c1:EFI -n2:0:0 -t2:8300 -c2:root disk.img
+          LOOP=$(losetup --show -Pf disk.img); echo "LOOP=$LOOP" >> "$GITHUB_ENV"
+          mkfs.fat -F32 -n EFI "${LOOP}p1"
+          mkfs.btrfs -f -L arch "${LOOP}p2"
+          mount "${LOOP}p2" /mnt
+          btrfs subvolume create /mnt/@
+          btrfs subvolume create /mnt/@home
+          umount /mnt
+          mount -o noatime,compress=zstd,subvol=@ "${LOOP}p2" /mnt
+          mkdir -p /mnt/home /mnt/boot
+          mount -o noatime,compress=zstd,subvol=@home "${LOOP}p2" /mnt/home
+          mount "${LOOP}p1" /mnt/boot
+
+      - name: pacstrap joelson-base (+ nvidia)
+        run: |
+          set -eux
+          pacstrap -K /mnt base linux linux-firmware amd-ucode joelson-base joelson-nvidia
+          genfstab -U /mnt >> /mnt/etc/fstab
+          cp /etc/pacman.conf /mnt/etc/pacman.conf
+          cp /tmp/joelson.gpg /mnt/root/joelson-repo.gpg
+
+      - name: Config base no chroot (o que o archinstall faz)
+        run: |
+          set -eux
+          cp /etc/resolv.conf /mnt/etc/resolv.conf
+          arch-chroot /mnt /bin/bash -e <<CHROOT
+          ln -sf /usr/share/zoneinfo/America/Recife /etc/localtime && hwclock --systohc || true
+          sed -i 's/^#\(pt_BR\.UTF-8\)/\1/; s/^#\(en_US\.UTF-8\)/\1/' /etc/locale.gen
+          locale-gen
+          echo 'LANG=pt_BR.UTF-8' > /etc/locale.conf
+          echo 'KEYMAP=br-abnt2' > /etc/vconsole.conf
+          echo e2e > /etc/hostname
+          printf '127.0.0.1 localhost\n::1 localhost\n127.0.1.1 e2e\n' > /etc/hosts
+          pacman-key --init && pacman-key --populate archlinux
+          pacman-key --add /root/joelson-repo.gpg && pacman-key --lsign-key '$KEYID'
+          mkinitcpio -P
+          bootctl --no-variables install || bootctl install || true
+          install -Dm644 /usr/lib/systemd/boot/efi/systemd-bootx64.efi /boot/EFI/BOOT/BOOTX64.EFI
+          ROOTUUID=\$(findmnt -no UUID /)
+          printf 'default arch.conf\ntimeout 3\n' > /boot/loader/loader.conf
+          printf 'title Arch\nlinux /vmlinuz-linux\ninitrd /amd-ucode.img\ninitrd /initramfs-linux.img\noptions root=UUID=%s rootflags=subvol=@ rw console=tty0 console=ttyS0,115200\n' "\$ROOTUUID" > /boot/loader/entries/arch.conf
+          useradd -mG wheel -s /bin/bash joelson
+          echo 'joelson:joelson' | chpasswd
+          echo 'root:root' | chpasswd
+          echo '%wheel ALL=(ALL:ALL) NOPASSWD: ALL' > /etc/sudoers.d/wheel
+          systemctl enable getty@ttyS0.service
+          CHROOT
+
+      - name: Rodar postinstall.sh como o usuário
+        run: |
+          set -eux
+          install -o 1000 -g 1000 -m755 postinstall.sh /mnt/home/joelson/postinstall.sh
+          arch-chroot /mnt sudo -u joelson bash -lc 'cd ~ && bash postinstall.sh'
+
+      - name: Asserts (offline)
+        run: |
+          set -eux
+          arch-chroot /mnt pacman -Q joelson-base joelson-nvidia
+          arch-chroot /mnt systemctl is-enabled sddm NetworkManager bluetooth firewalld
+          test -L /mnt/home/joelson/.config/hypr
+          readlink /mnt/home/joelson/.config/hypr | grep -q 'dotfiles/common/hypr'
+          test -L /mnt/home/joelson/.config/waybar
+          test -L /mnt/home/joelson/.local/bin/nvidia-offload
+          test -f /mnt/boot/loader/entries/arch.conf
+          arch-chroot /mnt test -d /home/joelson/dotfiles/.git
+          echo "OFFLINE ASSERTS OK"
+
+      - name: Boot real em qemu/KVM + checagem via login serial
+        run: |
+          set -eux
+          sync
+          umount -R /mnt
+          losetup -d "$LOOP"
+          cp /usr/share/edk2/x64/OVMF_VARS.4m.fd vars.fd
+          cat > drive.expect <<'EXP'
+          set timeout 600
+          spawn qemu-system-x86_64 -accel tcg -m 2048 -smp 2 -nographic -no-reboot \
+            -drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd \
+            -drive if=pflash,format=raw,file=vars.fd \
+            -drive file=disk.img,format=raw,if=virtio
+          expect {
+            timeout { puts "\nTIMEOUT esperando login"; exit 2 }
+            "e2e login: "
+          }
+          send "root\r"
+          expect "Password: "
+          send "root\r"
+          expect "# "
+          send "pacman -Q joelson-base joelson-nvidia && echo PKG_OK\r"
+          expect "# "
+          send "systemctl is-enabled sddm NetworkManager && echo SVC_OK\r"
+          expect "# "
+          send "test -L /home/joelson/.config/hypr && echo HYPR_LINK_OK\r"
+          expect "# "
+          send "echo ===E2E_DONE===\r"
+          expect "===E2E_DONE==="
+          send "poweroff\r"
+          expect eof
+          EXP
+          expect drive.expect | tee vm.log
+          grep -q 'PKG_OK'       vm.log
+          grep -q 'SVC_OK'       vm.log
+          grep -q 'HYPR_LINK_OK' vm.log
+          echo "BOOT + RUNTIME OK"

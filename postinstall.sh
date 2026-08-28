@@ -50,8 +50,8 @@ fi
 sudo pacman -Syu --needed --noconfirm "${pkgs[@]}"
 
 msg "Habilitando serviços"
-sudo systemctl enable --now NetworkManager
-sudo systemctl enable sddm bluetooth firewalld
+sudo systemctl enable NetworkManager sddm bluetooth firewalld
+sudo systemctl start NetworkManager 2>/dev/null || true   # no-op se rodando em chroot
 
 msg "Dotfiles (hyprdots)"
 if [[ -d "$HOME/dotfiles/.git" ]]; then

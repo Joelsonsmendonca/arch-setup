@@ -13,6 +13,6 @@
     "uki": false,
     "removable": false
   },
-  "swap": true,
+  "swap": { "enabled": true, "algorithm": "zstd" },
   "packages": ["git", "curl", "base-devel", "reflector", "vim"]
 }
