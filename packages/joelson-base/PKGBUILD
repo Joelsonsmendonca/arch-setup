@@ -5,7 +5,7 @@
 
 pkgname=joelson-base
 pkgver=1.1.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Meta-pacote com todos os apps do meu desktop Hyprland (comum a PC e notebook)"
 arch=('any')
 url="https://github.com/Joelsonsmendonca/arch-setup"
@@ -94,6 +94,30 @@ depends=(
   proton-vpn-gtk-app
   android-tools
   vesktop-bin           # vem do meu próprio repo (build via aur/list.txt)
+  # --- sincronizados da máquina local ---
+  7zip
+  amd-ucode
+  ark
+  calf
+  docker
+  docker-compose
+  easyeffects
+  fastpotify
+  flatpak
+  gobject-introspection
+  gst-plugins-bad
+  gst-plugins-good
+  gtksourceview5
+  jq
+  libayatana-appindicator
+  libspelling
+  lsp-plugins-lv2
+  nvme-cli
+  openssh
+  unzip
+  uv
+  webkit2gtk-4.1
+  wpa_supplicant
 )
 
 package() {
