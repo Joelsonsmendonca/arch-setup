@@ -72,10 +72,14 @@ sudo -u "$USER" systemctl --user enable --now ai-memory.service 2>/dev/null || t
 sudo -u "$USER" mkdir -p "$HOME/.config/ai-memory" "$HOME/.local/share/ai-memory"
 if [ ! -f "$HOME/.config/ai-memory/config.toml" ]; then
     sudo -u "$USER" ai-memory --data-dir "$HOME/.local/share/ai-memory" --config "$HOME/.config/ai-memory/config.toml" init
-    sudo -u "$USER" sed -i 's/^provider = .*/provider = "openai-compat"/g' "$HOME/.config/ai-memory/config.toml"
-    sudo -u "$USER" sed -i 's/^# base_url = .*/base_url = "http:\/\/127.0.0.1:11434\/v1"/g' "$HOME/.config/ai-memory/config.toml"
-    sudo -u "$USER" sed -i 's/^model = .*/model = "qwen2.5-coder:7b"/g' "$HOME/.config/ai-memory/config.toml"
-    sudo -u "$USER" sed -i 's/^# timeout_secs = .*/timeout_secs = 600/g' "$HOME/.config/ai-memory/config.toml"
+    sudo -u "$USER" bash -c 'cat << "EOF_TOML" >> "$HOME/.config/ai-memory/config.toml"
+
+[llm]
+provider = "openai-compat"
+model = "qwen2.5-coder:7b"
+base_url = "http://127.0.0.1:11434/v1"
+timeout_secs = 600
+EOF_TOML'
     sudo -u "$USER" sed -i 's/^max_input_tokens = .*/max_input_tokens = 6500/g' "$HOME/.config/ai-memory/config.toml"
     sudo -u "$USER" sed -i 's/^max_output_tokens = .*/max_output_tokens = 1000/g' "$HOME/.config/ai-memory/config.toml"
     sudo -u "$USER" systemctl --user restart ai-memory.service 2>/dev/null || true
