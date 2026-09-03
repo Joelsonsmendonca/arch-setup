@@ -25,10 +25,26 @@ if ! grep -q '^\[multilib\]' /etc/pacman.conf; then
   fi
 fi
 
-msg "Instalando pacotes da interface e ferramentas essenciais..."
+msg "Instalando pacotes da interface, fontes, ícones e ferramentas essenciais..."
 pkgs=(
-  hyprland kitty rofi waybar wofi fuzzel uwsm pipewire-jack pipewire-pulse
-  swaync sddm bluez bluez-utils firewalld qt5-wayland qt6-wayland polkit-kde-agent
+  # Desktop & Wayland
+  hyprland kitty rofi waybar wofi fuzzel uwsm swaync sddm
+  qt5-wayland qt6-wayland polkit-kde-agent
+
+  # Áudio & Mídia
+  pipewire-jack pipewire-pulse wireplumber pavucontrol playerctl
+
+  # Rede & Conectividade
+  network-manager-applet bluez bluez-utils firewalld
+
+  # Fontes & Temas de Ícones
+  ttf-jetbrains-mono-nerd breeze-icons noto-fonts-emoji noto-fonts-cjk
+
+  # Utilitários de Desktop
+  wl-clipboard grim slurp brightnessctl dolphin btop
+
+  # Ferramentas de Desenvolvimento & Containers
+  uv docker docker-compose jq
 )
 if lspci 2>/dev/null | grep -Eqi 'vga.*nvidia|3d.*nvidia'; then
   pkgs+=(nvidia-dkms nvidia-utils lib32-nvidia-utils egl-wayland linux-headers)
@@ -37,7 +53,8 @@ fi
 sudo pacman -Syu --needed --noconfirm "${pkgs[@]}"
 
 msg "Habilitando serviços"
-sudo systemctl enable NetworkManager sddm bluetooth firewalld
+sudo systemctl enable NetworkManager sddm bluetooth firewalld docker
+sudo usermod -aG docker "$USER" 2>/dev/null || true
 sudo systemctl start NetworkManager 2>/dev/null || true   # no-op se rodando em chroot
 
 msg "Dotfiles (hyprdots)"
@@ -51,6 +68,12 @@ bash "$HOME/dotfiles/bootstrap.sh"
 
 
 msg "Configurando ai-memory e serviços do usuário"
+if ! command -v ai-memory >/dev/null 2>&1; then
+  msg "Instalando binário do ai-memory..."
+  curl -fsSL https://github.com/akitaonrails/ai-memory/releases/download/v2.0.1/ai-memory-linux-x86_64.tar.gz | sudo tar -xz -C /usr/local/bin/ ai-memory 2>/dev/null || true
+  sudo chmod +x /usr/local/bin/ai-memory 2>/dev/null || true
+fi
+
 # Habilita o ai-memory no systemd do usuário
 sudo -u "$USER" systemctl --user enable --now ai-memory.service 2>/dev/null || true
 
