@@ -13,15 +13,15 @@
 <p>Repositório pacman pessoal — apps do meu desktop Hyprland, para sincronizar PC e notebook.</p>
 
 <h2>Configurar numa máquina nova</h2>
-<pre>curl -O https://www.joelsonmendonca.com/arch-setup/joelson-repo.gpg
+<pre>curl -O https://joelsonsmendonca.github.io/arch-setup/joelson-repo.gpg
 sudo pacman-key --add joelson-repo.gpg
-sudo pacman-key --lsign-key $(curl -s https://www.joelsonmendonca.com/arch-setup/KEYID)
+sudo pacman-key --lsign-key $(curl -s https://joelsonsmendonca.github.io/arch-setup/KEYID)
 
 sudo tee -a /etc/pacman.conf &lt;&lt;'EOF'
 
 [joelson]
 SigLevel = Required
-Server = https://www.joelsonmendonca.com/arch-setup/$arch
+Server = https://joelsonsmendonca.github.io/arch-setup/$arch
 EOF
 
 # habilite [multilib] no /etc/pacman.conf (steam), depois:
