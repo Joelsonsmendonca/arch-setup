@@ -27,6 +27,7 @@ abaixo são a referência do que ele executa.
 | Data-dir (SQLite, índice) | `~/.local/share/ai-memory/` |
 | Wiki (markdown, git) | `~/github/meu-cerebro-ia` ← `~/.local/share/ai-memory/wiki` (symlink) |
 | Servidor | `~/.config/systemd/user/ai-memory.service` (HTTP em `127.0.0.1:49374`) |
+| UI web | `http://127.0.0.1:49374/web/` (precisa de `--enable-web`, já na unit) |
 | Sync GitOps | `~/.config/systemd/user/ai-memory-sync.{path,timer,service}` + `~/.local/bin/ai-memory-sync` |
 
 ## 🚀 Configurar uma máquina NOVA (Nó)
@@ -67,7 +68,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 EnvironmentFile=-%h/.config/ai-memory/env
-ExecStart=/usr/local/bin/ai-memory --data-dir %h/.local/share/ai-memory serve --transport http
+ExecStart=/usr/local/bin/ai-memory --data-dir %h/.local/share/ai-memory serve --transport http --enable-web
 Restart=on-failure
 RestartSec=2
 
