@@ -27,9 +27,12 @@ graça no GitHub (Actions + Pages + Releases).
 - **`iso/`** — customização do profile `releng` do archiso: injeta `[joelson]` +
   `multilib` no `pacman.conf` e adiciona `iso/airootfs/root/install.sh` (wrapper do
   **archinstall** com `joelson.json` já preenchido).
-- **`postinstall.sh`** — publicado no Pages; um comando que põe qualquer máquina no
-  trilho (repo + `joelson-base` + serviços + dotfiles). Fase 2 da instalação e
-  também o "passo B" pra PCs que já rodam Arch.
+- **`postinstall.sh`** — executável diretamente via raw do GitHub; um comando que põe qualquer máquina no
+  trilho (apps oficiais, fontes, ícones, dotfiles e ai-memory). Fase 2 da instalação e
+  também o "passo B" pra PCs que já rodam Arch:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/Joelsonsmendonca/arch-setup/main/postinstall.sh | bash
+  ```
 - **`repo/`** — chave pública GPG (`joelson-repo.gpg`) e `KEYID`. A **chave
   privada** vive só no secret `GPG_PRIVATE_KEY` do repo, nunca é commitada.
 - Dotfiles ficam em outro repo: **[hyprdots](https://github.com/Joelsonsmendonca/hyprdots)**.
