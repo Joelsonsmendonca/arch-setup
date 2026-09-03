@@ -1,1 +1,1 @@
-/home/joelson/arch-setup/AGENTS.md
+AGENTS.md

@@ -1,56 +1,119 @@
 # 🧠 AI-Memory (Arquitetura P2P GitOps)
 
-Este repositório contém o script `setup_ai_memory_sync.sh` para configurar uma rede de nós autônomos do [ai-memory](https://github.com/akitaonrails/ai-memory).
+Este repositório contém o `setup_ai_memory_sync.sh` (e a seção `ai-memory` do
+`postinstall.sh`) para configurar uma rede de nós autônomos do
+[ai-memory](https://github.com/akitaonrails/ai-memory).
 
-A arquitetura transforma qualquer máquina (PC, Notebook) em um nó independente, onde:
-1. **Push Instantâneo:** Ao editar memórias localmente, o `systemd.path` (inotify) captura a gravação e envia para o GitHub imediatamente (0% de uso de CPU quando inativo).
-2. **Pull Passivo:** Um timer de 10 minutos (e no boot) puxa alterações feitas por outras máquinas silenciosamente.
-3. **Reindex Inteligente:** O script de pull só reindexa o SQLite se um commit novo de fato for baixado.
+A arquitetura transforma qualquer máquina (PC, Notebook) em um nó independente:
 
-## 🚀 Como configurar uma máquina NOVA (Nó)
+1. **Push Instantâneo:** ao gravar uma memória, o `systemd.path` (inotify no ref
+   git do wiki) commita e envia para o GitHub na hora (0% de CPU quando ocioso).
+2. **Pull Passivo:** um timer de 10 min (e no boot) puxa o que outras máquinas
+   escreveram.
+3. **Reindex automático:** o servidor `ai-memory` roda com um watcher de
+   filesystem — arquivos novos vindos do pull entram no índice sozinhos. O script
+   de sync **não** chama `ai-memory reindex` (o 2.x recusa reindexar sobre um DB
+   não-vazio; reindex é só para reconstrução limpa).
 
-Siga os passos abaixo quando estiver em uma máquina nova (ex: notebook recém-formatado):
+O **`postinstall.sh` já faz tudo isto de forma idempotente**. Os passos manuais
+abaixo são a referência do que ele executa.
 
-### Passo 1: Instalar o ai-memory
+## Layout na máquina
+
+| O quê | Onde |
+| --- | --- |
+| Binário | `/usr/local/bin/ai-memory` |
+| Config + env (Ollama) | `~/.config/ai-memory/{config.toml,env}` |
+| Data-dir (SQLite, índice) | `~/.local/share/ai-memory/` |
+| Wiki (markdown, git) | `~/github/meu-cerebro-ia` ← `~/.local/share/ai-memory/wiki` (symlink) |
+| Servidor | `~/.config/systemd/user/ai-memory.service` (HTTP em `127.0.0.1:49374`) |
+| Sync GitOps | `~/.config/systemd/user/ai-memory-sync.{path,timer,service}` + `~/.local/bin/ai-memory-sync` |
+
+## 🚀 Configurar uma máquina NOVA (Nó)
+
+### Passo 1 — Instalar o binário
 ```bash
-# Se tiver o yay instalado:
-yay -S ai-memory-bin
-
-# Ou via download direto:
-curl -LO https://github.com/akitaonrails/ai-memory/releases/download/v1.38.0/ai-memory-linux-x86_64.tar.gz
-tar -xzf ai-memory-linux-x86_64.tar.gz
-sudo mv ai-memory /usr/local/bin/
+yay -S ai-memory-bin          # traz também a unit systemd
+# ou, via release:
+curl -fsSL https://github.com/akitaonrails/ai-memory/releases/download/v2.0.1/ai-memory-linux-x86_64.tar.gz \
+  | sudo tar -xz -C /usr/local/bin/
 ```
 
-### Passo 2: Clonar o Cérebro Central
-Crie a estrutura local vazia e baixe os dados do repositório privado do GitHub.
+### Passo 2 — Config + clonar o Cérebro
 ```bash
-ai-memory init
-rm -rf ~/.local/share/ai-memory/wiki
-# Altere para a sua chave Git:
-git clone git@github.com:Joelsonsmendonca/meu-cerebro-ia.git ~/.local/share/ai-memory/wiki
-ai-memory reindex
+mkdir -p ~/.config/ai-memory ~/.local/share/ai-memory ~/github
+ai-memory --data-dir ~/.local/share/ai-memory --config ~/.config/ai-memory/config.toml init
+cat > ~/.config/ai-memory/env <<'EOF'
+AI_MEMORY_LLM_PROVIDER=openai-compat
+AI_MEMORY_LLM_MODEL=qwen2.5-coder:7b
+AI_MEMORY_LLM_BASE_URL=http://127.0.0.1:11434/v1
+AI_MEMORY_LLM_COMPAT_STRICT=false
+EOF
+
+git clone git@github.com:Joelsonsmendonca/meu-cerebro-ia.git ~/github/meu-cerebro-ia
+ln -sfn ~/github/meu-cerebro-ia ~/.local/share/ai-memory/wiki
 ```
 
-### Passo 3: Ativar o Sincronizador Bidirecional
-Rode o script que está neste repositório para injetar os serviços no Linux:
+### Passo 3 — Servidor systemd
+Se instalou por release (sem a unit do pacote), crie-a:
+```bash
+mkdir -p ~/.config/systemd/user
+cat > ~/.config/systemd/user/ai-memory.service <<'EOF'
+[Unit]
+Description=ai-memory MCP server (HTTP, local)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/ai-memory/env
+ExecStart=/usr/local/bin/ai-memory --data-dir %h/.local/share/ai-memory serve --transport http
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
+EOF
+systemctl --user daemon-reload
+systemctl --user enable --now ai-memory.service
+```
+
+### Passo 4 — Sincronizador bidirecional
 ```bash
 ./setup_ai_memory_sync.sh
 ```
 
-### Passo 4: Plugar nos Agentes (Claude Code / Antigravity)
-Conecte o servidor de memórias aos seus agentes CLI. Substitua o token pelo que foi gerado (`AI_MEMORY_AUTH_TOKEN`):
-
-**Para o Claude Code:**
+### Passo 5 — Plugar nos agentes CLI (Claude Code + Antigravity)
+O servidor local não exige token (bind em loopback). Idempotente:
 ```bash
-claude mcp add --transport http ai-memory http://127.0.0.1:49374/mcp --header "Authorization: Bearer <SEU_TOKEN>"
-ai-memory install-hooks --agent claude-code --apply --server-url "http://127.0.0.1:49374" --auth-token "<SEU_TOKEN>"
+for agent in claude-code antigravity-cli; do
+  ai-memory install-mcp   --client "$agent" --apply --server-url http://127.0.0.1:49374/mcp
+  ai-memory install-hooks --agent  "$agent" --apply --server-url http://127.0.0.1:49374 \
+      --project-strategy repo-root
+done
 ```
 
-**Para o Antigravity (agy):**
-```bash
-ai-memory install-mcp --client agy --apply --server-url "http://127.0.0.1:49374/mcp" --auth-token "<SEU_TOKEN>"
-ai-memory install-hooks --agent agy --apply --server-url "http://127.0.0.1:49374" --auth-token "<SEU_TOKEN>"
-```
+`--project-strategy repo-root` faz cada sessão resolver o projeto pela raiz do
+repo git (colapsa subdiretórios/worktrees) — evita memórias caírem num projeto
+espúrio "github" quando o agente é aberto no diretório-pai `~/github`.
 
-Tudo pronto! Sua máquina agora é uma réplica exata do Cérebro.
+Onde cada coisa é escrita:
+
+| Agente | MCP | Hooks |
+| --- | --- | --- |
+| Claude Code | `~/.claude.json` | `~/.claude/settings.json` |
+| Antigravity (`agy`) | `~/.gemini/config/mcp_config.json` | `~/.gemini/config/hooks.json` |
+
+Se precisar de token (ex.: servidor exposto na LAN): `ai-memory generate-auth-token`,
+guarde em `AI_MEMORY_AUTH_TOKEN` no `env` do servidor **e** passe
+`--auth-token <TOKEN>` nos comandos acima.
+
+### Passo 6 — Instruções por repositório
+Dentro de cada projeto que usa o cérebro:
+```bash
+ai-memory install-instructions --target AGENTS.md --skills-scope project --skills-agent agents
+```
+Idempotente — mantém o bloco entre `<!-- ai-memory:start -->` / `<!-- ai-memory:end -->`
+e instala as Agent Skills em `.agents/skills/`.
+
+Pronto — a máquina é uma réplica do Cérebro.
