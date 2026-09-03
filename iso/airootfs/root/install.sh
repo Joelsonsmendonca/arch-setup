@@ -25,7 +25,7 @@ Depois selecione  ->  Install  <-  e no fim reinicie.
 
   >>> NO PRIMEIRO BOOT, logue no console e rode UMA linha:
 
-      curl -fsSL https://www.joelsonmendonca.com/arch-setup/postinstall.sh | bash
+      curl -fsSL https://raw.githubusercontent.com/Joelsonsmendonca/arch-setup/main/postinstall.sh | bash
 
   (instala todos os apps, liga o SDDM/Hyprland e monta os dotfiles)
 

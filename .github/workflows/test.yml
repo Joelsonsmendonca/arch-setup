@@ -26,22 +26,16 @@ jobs:
           pacman -Sy --noconfirm --needed archlinux-keyring
           pacman -Su --noconfirm --needed curl
       - uses: actions/checkout@v4
-      - name: Confiar no repo [joelson] + multilib
+      - name: Habilitar multilib
         run: |
-          pacman-key --init
-          pacman-key --populate archlinux
-          curl -fsSL https://www.joelsonmendonca.com/arch-setup/joelson-repo.gpg -o /tmp/k.gpg
-          pacman-key --add /tmp/k.gpg
-          pacman-key --lsign-key "$(curl -fsSL https://www.joelsonmendonca.com/arch-setup/KEYID)"
           grep -q '^#\[multilib\]' /etc/pacman.conf \
             && sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf \
             || printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >> /etc/pacman.conf
-          printf '\n[joelson]\nSigLevel = Required\nServer = https://www.joelsonmendonca.com/arch-setup/$arch\n' >> /etc/pacman.conf
           pacman -Syy
-      - name: pacman -Sw (resolve + baixa + verifica assinatura de tudo)
+      - name: pacman -Sw (resolve + baixa os pacotes oficiais do postinstall)
         run: |
-          # mesma linha do postinstall.sh (pipewire-jack explícito)
-          pacman -Sw --noconfirm --needed pipewire-jack joelson-base joelson-nvidia
+          source <(grep -A 30 '^pkgs=(' postinstall.sh)
+          pacman -Sw --noconfirm --needed "${pkgs[@]}"
 
   # O joelson.json é aceito pelo archinstall de verdade (não só JSON válido)?
   archinstall-config:

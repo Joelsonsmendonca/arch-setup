@@ -18,7 +18,7 @@ Um comando faz tudo (confia na chave, adiciona o repo + multilib, instala
 `joelson-base` (+ `joelson-nvidia` se houver NVIDIA), liga serviços, monta dotfiles):
 
 ```bash
-curl -fsSL https://www.joelsonmendonca.com/arch-setup/postinstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Joelsonsmendonca/arch-setup/main/postinstall.sh | bash
 ```
 
 <details><summary>o que ele faz, na mão</summary>

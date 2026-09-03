@@ -54,12 +54,11 @@ Depois: **Install** → confirmar → ao terminar, **reboot** (tire o pendrive).
 Loga no console com o usuário que você criou e roda **uma linha**:
 
 ```bash
-curl -fsSL https://www.joelsonmendonca.com/arch-setup/postinstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Joelsonsmendonca/arch-setup/main/postinstall.sh | bash
 ```
 
-Ele: confia na chave do repo `[joelson]`, adiciona o repo + multilib no
-`pacman.conf`, instala **`joelson-base`** (+ `joelson-nvidia` se detectar GPU
-NVIDIA), habilita SDDM/Bluetooth/firewalld e monta os symlinks dos
+Ele: adiciona multilib no `pacman.conf`, instala a interface Hyprland, fontes,
+ícones e ferramentas essenciais, habilita SDDM/Bluetooth/firewalld/docker e monta os symlinks dos
 [dotfiles](https://github.com/Joelsonsmendonca/hyprdots) em `~/.config`.
 
 ```bash

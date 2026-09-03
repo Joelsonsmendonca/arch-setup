@@ -9,7 +9,7 @@
        bash /root/install.sh
 
   3. No primeiro boot da máquina nova, logue e rode:
-       curl -fsSL https://www.joelsonmendonca.com/arch-setup/postinstall.sh | bash
+       curl -fsSL https://raw.githubusercontent.com/Joelsonsmendonca/arch-setup/main/postinstall.sh | bash
 
   ───────────────────────────────────────────────────────────
 
