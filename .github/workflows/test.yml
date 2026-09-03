@@ -34,7 +34,7 @@ jobs:
           pacman -Syy
       - name: pacman -Sw (resolve + baixa os pacotes oficiais do postinstall)
         run: |
-          source <(grep -A 30 '^pkgs=(' postinstall.sh)
+          eval "$(sed -n '/^pkgs=(/,/^)/p' postinstall.sh)"
           pacman -Sw --noconfirm --needed "${pkgs[@]}"
 
   # O joelson.json é aceito pelo archinstall de verdade (não só JSON válido)?
