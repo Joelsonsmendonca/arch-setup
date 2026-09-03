@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# Coloca uma máquina Arch no "trilho joelson": confia no repo [joelson], instala
-# joelson-base (+ nvidia), liga os serviços e monta os dotfiles.
+# Coloca uma máquina Arch no "trilho joelson": instala dependências oficiais,
+# liga os serviços e monta os dotfiles.
 #
 # Rodar como USUÁRIO normal (pede sudo). Idempotente — pode rodar de novo, e
 # serve tanto pós-instalação (ISO) quanto pra alinhar um PC que já roda Arch.
 #
-#   curl -fsSL https://www.joelsonmendonca.com/arch-setup/postinstall.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Joelsonsmendonca/arch-setup/main/postinstall.sh | bash
 set -euo pipefail
 
-REPO='https://www.joelsonmendonca.com/arch-setup'
 DOTFILES_GIT='https://github.com/Joelsonsmendonca/hyprdots.git'
 
 msg(){ printf '\e[32m==>\e[0m %s\n' "$*"; }
@@ -17,15 +16,7 @@ msg(){ printf '\e[32m==>\e[0m %s\n' "$*"; }
 command -v sudo >/dev/null || { echo "instale 'sudo' e adicione seu usuário ao grupo wheel primeiro"; exit 1; }
 command -v git  >/dev/null || sudo pacman -S --noconfirm --needed git
 
-msg "Confiando na chave de assinatura do repo"
-KEYID=$(curl -fsSL "$REPO/KEYID")
-key=$(mktemp)
-curl -fsSL "$REPO/joelson-repo.gpg" -o "$key"
-sudo pacman-key --add "$key"
-sudo pacman-key --lsign-key "$KEYID"
-rm -f "$key"
-
-msg "Ajustando /etc/pacman.conf (multilib + [joelson])"
+msg "Ajustando /etc/pacman.conf (multilib)"
 if ! grep -q '^\[multilib\]' /etc/pacman.conf; then
   if grep -q '^#\[multilib\]' /etc/pacman.conf; then
     sudo sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf
@@ -33,20 +24,15 @@ if ! grep -q '^\[multilib\]' /etc/pacman.conf; then
     printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' | sudo tee -a /etc/pacman.conf >/dev/null
   fi
 fi
-if ! grep -q '^\[joelson\]' /etc/pacman.conf; then
-  sudo tee -a /etc/pacman.conf >/dev/null <<EOF
 
-[joelson]
-SigLevel = Required
-Server = $REPO/\$arch
-EOF
-fi
-
-msg "Instalando pacotes"
-# pipewire-jack explícito: resolve "2 providers for jack" sem prompt (senão pega jack2 e conflita)
-pkgs=(pipewire-jack joelson-base)
+msg "Instalando pacotes da interface e ferramentas essenciais..."
+pkgs=(
+  hyprland kitty rofi waybar wofi fuzzel uwsm pipewire-jack pipewire-pulse
+  swaync sddm bluez bluez-utils firewalld qt5-wayland qt6-wayland polkit-kde-agent
+)
 if lspci 2>/dev/null | grep -Eqi 'vga.*nvidia|3d.*nvidia'; then
-  pkgs+=(joelson-nvidia); msg "  GPU NVIDIA detectada -> joelson-nvidia"
+  pkgs+=(nvidia-dkms nvidia-utils lib32-nvidia-utils egl-wayland linux-headers)
+  msg "  GPU NVIDIA detectada -> pacotes nvidia adicionados"
 fi
 sudo pacman -Syu --needed --noconfirm "${pkgs[@]}"
 
@@ -71,15 +57,15 @@ sudo -u "$USER" systemctl --user enable --now ai-memory.service 2>/dev/null || t
 # Configuração base para plugar o Ollama
 sudo -u "$USER" mkdir -p "$HOME/.config/ai-memory" "$HOME/.local/share/ai-memory"
 if [ ! -f "$HOME/.config/ai-memory/config.toml" ]; then
-    sudo -u "$USER" ai-memory --data-dir "$HOME/.local/share/ai-memory" --config "$HOME/.config/ai-memory/config.toml" init
+    sudo -u "$USER" ai-memory --data-dir "$HOME/.local/share/ai-memory" --config "$HOME/.config/ai-memory/config.toml" init || true
     sudo -u "$USER" bash -c 'cat << "EOF_ENV" > "$HOME/.config/ai-memory/env"
 AI_MEMORY_LLM_PROVIDER=openai-compat
 AI_MEMORY_LLM_MODEL=qwen2.5-coder:7b
 AI_MEMORY_LLM_BASE_URL=http://127.0.0.1:11434/v1
 AI_MEMORY_LLM_COMPAT_STRICT=false
 EOF_ENV'
-    sudo -u "$USER" sed -i 's/^max_input_tokens = .*/max_input_tokens = 6500/g' "$HOME/.config/ai-memory/config.toml"
-    sudo -u "$USER" sed -i 's/^max_output_tokens = .*/max_output_tokens = 1000/g' "$HOME/.config/ai-memory/config.toml"
+    sudo -u "$USER" sed -i 's/^max_input_tokens = .*/max_input_tokens = 6500/g' "$HOME/.config/ai-memory/config.toml" || true
+    sudo -u "$USER" sed -i 's/^max_output_tokens = .*/max_output_tokens = 1000/g' "$HOME/.config/ai-memory/config.toml" || true
     sudo -u "$USER" systemctl --user restart ai-memory.service 2>/dev/null || true
 fi
 
