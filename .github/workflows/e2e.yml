@@ -20,7 +20,7 @@ jobs:
       image: archlinux:latest
       options: --privileged
     env:
-      REPO_URL: https://www.joelsonmendonca.com/arch-setup
+      REPO_URL: https://joelsonsmendonca.github.io/arch-setup
     steps:
       - name: Ferramentas
         run: |
