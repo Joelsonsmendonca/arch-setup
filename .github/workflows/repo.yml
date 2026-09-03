@@ -34,8 +34,9 @@ jobs:
       - name: Dependências
         run: |
           pacman -Sy --noconfirm --needed archlinux-keyring
-          # cmake: makedep não declarado do fastpotify (projectm-sys via cargo)
-          pacman -Su --noconfirm --needed base-devel git pacman-contrib cmake
+          # cmake + clang: makedeps não declarados do fastpotify
+          # (projectm-sys via cargo: cmake pra libprojectM, libclang pra bindgen)
+          pacman -Su --noconfirm --needed base-devel git pacman-contrib cmake clang
 
       - uses: actions/checkout@v4
 
