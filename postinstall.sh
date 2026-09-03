@@ -68,28 +68,74 @@ bash "$HOME/dotfiles/bootstrap.sh"
 
 
 msg "Configurando ai-memory e serviços do usuário"
+AIM_VER='2.0.1'
+AIM_DATA="$HOME/.local/share/ai-memory"
+AIM_WIKI_REPO='git@github.com:Joelsonsmendonca/meu-cerebro-ia.git'
+AIM_WIKI_DIR="$HOME/github/meu-cerebro-ia"
+AIM_URL='http://127.0.0.1:49374'
+
 if ! command -v ai-memory >/dev/null 2>&1; then
   msg "Instalando binário do ai-memory..."
-  curl -fsSL https://github.com/akitaonrails/ai-memory/releases/download/v2.0.1/ai-memory-linux-x86_64.tar.gz | sudo tar -xz -C /usr/local/bin/
+  curl -fsSL "https://github.com/akitaonrails/ai-memory/releases/download/v${AIM_VER}/ai-memory-linux-x86_64.tar.gz" | sudo tar -xz -C /usr/local/bin/
   sudo chmod +x /usr/local/bin/ai-memory 2>/dev/null || true
 fi
 
-# Habilita o ai-memory no systemd do usuário
-sudo -u "$USER" systemctl --user enable --now ai-memory.service 2>/dev/null || true
-
-# Configuração base para plugar o Ollama
-sudo -u "$USER" mkdir -p "$HOME/.config/ai-memory" "$HOME/.local/share/ai-memory"
+# Config base + plug do Ollama (só na primeira vez)
+mkdir -p "$HOME/.config/ai-memory" "$AIM_DATA"
 if [ ! -f "$HOME/.config/ai-memory/config.toml" ]; then
-    sudo -u "$USER" ai-memory --data-dir "$HOME/.local/share/ai-memory" --config "$HOME/.config/ai-memory/config.toml" init || true
-    sudo -u "$USER" bash -c 'cat << "EOF_ENV" > "$HOME/.config/ai-memory/env"
+    ai-memory --data-dir "$AIM_DATA" --config "$HOME/.config/ai-memory/config.toml" init || true
+fi
+cat > "$HOME/.config/ai-memory/env" <<'EOF_ENV'
 AI_MEMORY_LLM_PROVIDER=openai-compat
 AI_MEMORY_LLM_MODEL=qwen2.5-coder:7b
 AI_MEMORY_LLM_BASE_URL=http://127.0.0.1:11434/v1
 AI_MEMORY_LLM_COMPAT_STRICT=false
-EOF_ENV'
-    sudo -u "$USER" sed -i 's/^max_input_tokens = .*/max_input_tokens = 6500/g' "$HOME/.config/ai-memory/config.toml" || true
-    sudo -u "$USER" sed -i 's/^max_output_tokens = .*/max_output_tokens = 1000/g' "$HOME/.config/ai-memory/config.toml" || true
-    sudo -u "$USER" systemctl --user restart ai-memory.service 2>/dev/null || true
+EOF_ENV
+
+# Clona o "cérebro" e liga como wiki do data-dir (o data-dir espera `wiki/`).
+if [ ! -d "$AIM_WIKI_DIR/.git" ]; then
+  mkdir -p "$HOME/github"
+  git clone "$AIM_WIKI_REPO" "$AIM_WIKI_DIR" || msg "  (clone do meu-cerebro-ia falhou — checar chave SSH)"
+fi
+if [ -d "$AIM_WIKI_DIR/.git" ] && [ ! -e "$AIM_DATA/wiki" ]; then
+  ln -s "$AIM_WIKI_DIR" "$AIM_DATA/wiki"
+fi
+
+# Unidade systemd do servidor (o pacote AUR ai-memory-bin também fornece uma;
+# este fallback cobre a instalação via tarball).
+if ! systemctl --user cat ai-memory.service >/dev/null 2>&1; then
+  mkdir -p "$HOME/.config/systemd/user"
+  cat > "$HOME/.config/systemd/user/ai-memory.service" <<EOF_UNIT
+[Unit]
+Description=ai-memory MCP server (HTTP, local)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/ai-memory/env
+ExecStart=/usr/local/bin/ai-memory --data-dir %h/.local/share/ai-memory serve --transport http
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
+EOF_UNIT
+fi
+systemctl --user daemon-reload
+systemctl --user enable --now ai-memory.service 2>/dev/null || true
+sleep 2
+
+# Pluga nos agentes CLI: Claude Code e Antigravity (agy). Idempotente.
+for agent in claude-code antigravity-cli; do
+  ai-memory install-mcp   --client "$agent" --apply --server-url "$AIM_URL/mcp" 2>/dev/null || true
+  ai-memory install-hooks --agent  "$agent" --apply --server-url "$AIM_URL" \
+      --project-strategy repo-root 2>/dev/null || true
+done
+
+# Sincronização bidirecional GitOps (systemd path+timer)
+if [ -f "$HOME/github/arch-setup/setup_ai_memory_sync.sh" ]; then
+  bash "$HOME/github/arch-setup/setup_ai_memory_sync.sh" || true
 fi
 
 cat <<EOF
