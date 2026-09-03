@@ -43,24 +43,31 @@ jobs:
         run: |
           pacman -Sy --noconfirm --needed archlinux-keyring
           # cmake + clang: makedeps não declarados do fastpotify (projectm-sys)
-          # sccache: cache de compilação Rust entre runs
+          # sccache: cache de compilação C/C++/Rust entre runs
           pacman -Su --noconfirm --needed base-devel git pacman-contrib cmake clang sccache
 
       - uses: actions/checkout@v4
 
-      - name: Usuário de build + tuning
+      - name: Usuário de build + tuning do makepkg
         run: |
           useradd -m builder
           echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
-          install -d -o builder -g builder /home/builder/.cache/sccache \
-            /home/builder/.cargo/registry /home/builder/.cargo/git
-          # makepkg: paraleliza, sem pacote -debug, sem LTO (compila bem mais rápido)
-          printf '\nMAKEFLAGS="-j$(nproc)"\nOPTIONS=(strip !docs !libtool !staticlibs emptydirs zipman purge !debug !lto)\n' >> /etc/makepkg.conf
-          # env do builder: sccache como wrapper do rustc
-          printf 'export RUSTC_WRAPPER=sccache\nexport SCCACHE_DIR=/home/builder/.cache/sccache\nexport SCCACHE_CACHE_SIZE=2G\n' >> /home/builder/.bashrc
-          chown -R builder:builder . /home/builder/.bashrc
+          install -d -o builder -g builder \
+            /home/builder/.cache/sccache /home/builder/.cargo/registry /home/builder/.cargo/git
+          cat >> /etc/makepkg.conf <<'EOF'
 
-      - name: Cache cargo + sccache (builds Rust do AUR)
+          # --- tuning CI ---
+          MAKEFLAGS="-j$(nproc)"
+          OPTIONS=(strip !docs !libtool !staticlibs emptydirs zipman purge !debug !lto)
+          export RUSTC_WRAPPER=sccache
+          export SCCACHE_DIR=/home/builder/.cache/sccache
+          export SCCACHE_CACHE_SIZE=2G
+          export CMAKE_C_COMPILER_LAUNCHER=sccache
+          export CMAKE_CXX_COMPILER_LAUNCHER=sccache
+          EOF
+          chown -R builder:builder .
+
+      - name: Cache cargo + sccache
         uses: actions/cache@v4
         with:
           path: |
@@ -72,8 +79,19 @@ jobs:
             cargo-${{ hashFiles('aur/list.txt') }}-
             cargo-
 
+      - name: Cache pacotes AUR já compilados (por versão)
+        uses: actions/cache@v4
+        with:
+          path: /tmp/pkgcache
+          key: pkgs-${{ hashFiles('aur/list.txt') }}-${{ github.run_id }}
+          restore-keys: |
+            pkgs-${{ hashFiles('aur/list.txt') }}-
+            pkgs-
+
       - name: Permissões pós-cache
-        run: chown -R builder:builder /home/builder/.cargo /home/builder/.cache
+        run: |
+          mkdir -p /tmp/pkgcache
+          chown -R builder:builder /home/builder/.cargo /home/builder/.cache /tmp/pkgcache
 
       - name: Importar chave de assinatura
         env:
@@ -93,22 +111,33 @@ jobs:
           set -euxo pipefail
           WS="$PWD"
           KEYID=$(cat repo/KEYID)
-          mkdir -p out/x86_64
+          mkdir -p out/x86_64 /tmp/pkgcache
 
-          # meta-pacotes deste repo — -d: não checar/instalar deps, só empacotar a lista
+          # meta-pacotes deste repo (arch=any, só empacotam uma lista — segundos)
           for p in packages/*/; do
             su - builder -c "cd '$WS/$p' && makepkg -f -d --noconfirm --sign --key $KEYID"
             cp "$WS/$p"*.pkg.tar.zst* out/x86_64/
           done
 
-          # pacotes do AUR
+          # pacotes do AUR — só (re)compila se a versão mudou; senão reusa o
+          # .pkg.tar.zst da run anterior (cache 'pkgs-*').
           grep -vE '^[[:space:]]*#|^[[:space:]]*$' aur/list.txt | while read -r pkg; do
             rm -rf "/tmp/$pkg"
             su - builder -c "git clone --depth 1 https://aur.archlinux.org/$pkg.git /tmp/$pkg"
-            su - builder -c "cd /tmp/$pkg && makepkg -s --noconfirm --sign --key $KEYID"
-            cp "/tmp/$pkg"/*.pkg.tar.zst* out/x86_64/
+            ver=$(sha256sum "/tmp/$pkg/.SRCINFO" | cut -c1-16)
+            cdir="/tmp/pkgcache/$pkg/$ver"
+            if compgen -G "$cdir/*.pkg.tar.zst" > /dev/null; then
+              echo "::notice::$pkg ($ver) — reaproveitado do cache, sem recompilar"
+              cp "$cdir"/*.pkg.tar.zst* out/x86_64/
+            else
+              su - builder -c "cd /tmp/$pkg && makepkg -s --noconfirm --nocheck --sign --key $KEYID"
+              mkdir -p "$cdir"
+              cp "/tmp/$pkg"/*.pkg.tar.zst* "$cdir"/
+              cp "/tmp/$pkg"/*.pkg.tar.zst* out/x86_64/
+            fi
           done
 
+          chown -R builder:builder /tmp/pkgcache
           su - builder -c 'sccache --show-stats' || true
 
       - name: Montar banco do repo
