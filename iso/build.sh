@@ -9,7 +9,7 @@ WORK="${WORK:-/tmp/archiso-work}"
 OUT="${OUT:-$ROOT/out}"
 PROFILE="$(mktemp -d)/profile"
 
-REPO_URL='https://www.joelsonmendonca.com/arch-setup/$arch'
+REPO_URL='https://joelsonsmendonca.github.io/arch-setup/$arch'
 
 cp -r /usr/share/archiso/configs/releng "$PROFILE"
 
