@@ -114,7 +114,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 EnvironmentFile=-%h/.config/ai-memory/env
-ExecStart=/usr/local/bin/ai-memory --data-dir %h/.local/share/ai-memory serve --transport http
+ExecStart=/usr/local/bin/ai-memory --data-dir %h/.local/share/ai-memory serve --transport http --enable-web
 Restart=on-failure
 RestartSec=2
 
