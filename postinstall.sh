@@ -68,16 +68,25 @@ bash "$HOME/dotfiles/bootstrap.sh"
 
 
 msg "Configurando ai-memory e serviços do usuário"
-AIM_VER='2.0.1'
 AIM_DATA="$HOME/.local/share/ai-memory"
 AIM_WIKI_REPO='git@github.com:Joelsonsmendonca/meu-cerebro-ia.git'
 AIM_WIKI_DIR="$HOME/github/meu-cerebro-ia"
 AIM_URL='http://127.0.0.1:49374'
 
-if ! command -v ai-memory >/dev/null 2>&1; then
-  msg "Instalando binário do ai-memory..."
-  curl -fsSL "https://github.com/akitaonrails/ai-memory/releases/download/v${AIM_VER}/ai-memory-linux-x86_64.tar.gz" | sudo tar -xz -C /usr/local/bin/
-  sudo chmod +x /usr/local/bin/ai-memory 2>/dev/null || true
+if ! pacman -Q ai-memory-bin >/dev/null 2>&1; then
+  msg "Instalando ai-memory-bin..."
+  # 1ª opção: repo pessoal [joelson] (CI compila do AUR e publica — ver aur/list.txt)
+  if ! sudo pacman -S --needed --noconfirm ai-memory-bin 2>/dev/null; then
+    # Fallback: build direto do AUR (sem helper, sem repo pessoal)
+    msg "  repo [joelson] indisponível — buildando ai-memory-bin do AUR..."
+    sudo pacman -S --needed --noconfirm base-devel git
+    tmp="$(mktemp -d)"
+    git clone --depth 1 https://aur.archlinux.org/ai-memory-bin.git "$tmp"
+    ( cd "$tmp" && makepkg -si --noconfirm )
+    rm -rf "$tmp"
+  fi
+  # Remove binário/hook antigos de instalação por tarball, se existirem
+  sudo rm -rf /usr/local/bin/ai-memory /usr/local/bin/hooks 2>/dev/null || true
 fi
 
 # Config base + plug do Ollama (só na primeira vez)
@@ -101,11 +110,11 @@ if [ -d "$AIM_WIKI_DIR/.git" ] && [ ! -e "$AIM_DATA/wiki" ]; then
   ln -s "$AIM_WIKI_DIR" "$AIM_DATA/wiki"
 fi
 
-# Unidade systemd do servidor (o pacote AUR ai-memory-bin também fornece uma;
-# este fallback cobre a instalação via tarball).
+# A unit `ai-memory.service` (user) vem do pacote em /usr/lib/systemd/user/.
+# Só cria um fallback local se o pacote não a forneceu.
 if ! systemctl --user cat ai-memory.service >/dev/null 2>&1; then
   mkdir -p "$HOME/.config/systemd/user"
-  cat > "$HOME/.config/systemd/user/ai-memory.service" <<EOF_UNIT
+  cat > "$HOME/.config/systemd/user/ai-memory.service" <<'EOF_UNIT'
 [Unit]
 Description=ai-memory MCP server (HTTP, local)
 After=network-online.target
@@ -114,9 +123,9 @@ Wants=network-online.target
 [Service]
 Type=simple
 EnvironmentFile=-%h/.config/ai-memory/env
-ExecStart=/usr/local/bin/ai-memory --data-dir %h/.local/share/ai-memory serve --transport http --enable-web
+ExecStart=/usr/bin/ai-memory --data-dir %h/.local/share/ai-memory --config %h/.config/ai-memory/config.toml serve --transport http --enable-web
 Restart=on-failure
-RestartSec=2
+RestartSec=5s
 
 [Install]
 WantedBy=default.target
