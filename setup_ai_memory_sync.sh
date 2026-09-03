@@ -1,22 +1,28 @@
 #!/bin/bash
 # Configura a sincronização bidirecional do AI-Memory (GitOps P2P).
 #
-# - push imediato: ai-memory-sync.path (inotify no ref do git do wiki)
+# - push imediato: ai-memory-sync.path (inotify no ref git do wiki)
 # - pull periódico: ai-memory-sync.timer (a cada 10 min + no boot)
+#
 # O servidor ai-memory tem watcher de filesystem próprio, então arquivos novos
 # vindos do pull são reindexados sozinhos — não forçamos `reindex` aqui
-# (reindex 2.x recusa rodar sobre um DB não-vazio).
+# (o reindex 2.x recusa rodar sobre um DB não-vazio).
+#
+# Layout do wiki: funciona tanto com `~/.local/share/ai-memory/wiki` sendo um
+# clone real quanto sendo um symlink para um clone externo (ex.: ~/github/meu-cerebro-ia).
 set -eu
 
-WIKI_DIR="$HOME/github/meu-cerebro-ia"
+# Resolve o diretório real do wiki (symlink -> alvo; clone real -> ele mesmo).
+WIKI_DIR="$(readlink -f "$HOME/.local/share/ai-memory/wiki" 2>/dev/null || true)"
+[ -d "$WIKI_DIR/.git" ] || WIKI_DIR="$HOME/github/meu-cerebro-ia"
 
-echo "=> Configurando sincronização bidirecional do AI-Memory..."
+echo "=> Configurando sincronização bidirecional do AI-Memory (wiki: $WIKI_DIR)..."
 mkdir -p ~/.local/bin ~/.config/systemd/user
 
 cat << 'INNER_EOF' > ~/.local/bin/ai-memory-sync
 #!/bin/bash
 set -u
-WIKI="$(readlink -f "$HOME/.local/share/ai-memory/wiki" 2>/dev/null)"
+WIKI="$(readlink -f "$HOME/.local/share/ai-memory/wiki" 2>/dev/null || true)"
 [ -d "$WIKI/.git" ] || WIKI="$HOME/github/meu-cerebro-ia"
 cd "$WIKI" 2>/dev/null || exit 0
 git remote get-url origin >/dev/null 2>&1 || exit 0
@@ -28,15 +34,23 @@ BRANCH="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo main)"
 echo "Sincronizando memórias com o GitHub (branch: $BRANCH)..."
 OLD_HEAD=$(git rev-parse HEAD 2>/dev/null)
 
+# 1. Commita alterações locais pendentes.
 if ! git diff --quiet || ! git diff --cached --quiet || \
    [ -n "$(git ls-files --others --exclude-standard)" ]; then
     git add -A
     git commit -m "sync: alterações locais do ai-memory (${HOSTNAME:-$(uname -n)} $(date -Iseconds))" >/dev/null 2>&1
 fi
 
-git pull --rebase origin "$BRANCH" >/dev/null 2>&1
+# 2. Integra o remoto por MERGE (não rebase — rebase interrompido deixa a branch
+#    em detached HEAD e trava a sincronização). Conflito -> aborta e deixa pro humano.
+git fetch -q origin "$BRANCH" 2>/dev/null || true
+if ! git -c core.editor=true merge --no-edit "origin/$BRANCH" >/dev/null 2>&1; then
+    git merge --abort 2>/dev/null || true
+    echo "AVISO: conflito ao integrar origin/$BRANCH — resolva à mão em $WIKI" >&2
+    exit 1
+fi
 NEW_HEAD=$(git rev-parse HEAD 2>/dev/null)
-[ "$OLD_HEAD" != "$NEW_HEAD" ] && echo "Novidades recebidas — o watcher do ai-memory vai reindexar."
+[ "$OLD_HEAD" != "$NEW_HEAD" ] && echo "Novidades recebidas — o watcher do ai-memory reindexará."
 
 git push origin "$BRANCH" >/dev/null 2>&1
 echo "Sincronização bidirecional concluída!"
