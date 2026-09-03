@@ -5,7 +5,7 @@
 
 pkgname=joelson-base
 pkgver=1.1.1
-pkgrel=3
+pkgrel=4
 pkgdesc="Meta-pacote com todos os apps do meu desktop Hyprland (comum a PC e notebook)"
 arch=('any')
 url="https://github.com/Joelsonsmendonca/arch-setup"
@@ -102,7 +102,6 @@ depends=(
   docker
   docker-compose
   easyeffects
-  fastpotify
   ai-memory-bin
   flatpak
   gobject-introspection

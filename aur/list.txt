@@ -1,5 +1,4 @@
 # Um pacote do AUR por linha (pkgbase). O CI clona de aur.archlinux.org,
 # compila, assina e publica no repo pessoal junto com os meta-pacotes.
 vesktop-bin
-fastpotify
 ai-memory-bin
