@@ -2,4 +2,5 @@
 # compila, assina e publica no repo pessoal junto com os meta-pacotes.
 vesktop-bin
 fastpotify
+brave-bin
 ai-memory-bin

@@ -5,7 +5,7 @@
 
 pkgname=joelson-base
 pkgver=1.1.1
-pkgrel=3
+pkgrel=4
 pkgdesc="Meta-pacote com todos os apps do meu desktop Hyprland (comum a PC e notebook)"
 arch=('any')
 url="https://github.com/Joelsonsmendonca/arch-setup"
@@ -88,7 +88,7 @@ depends=(
   noto-fonts-cjk
 
   # --- apps ---
-  firefox
+  brave-bin             # vem do meu próprio repo (build via aur/list.txt)
   code
   steam                 # requer [multilib] habilitado em /etc/pacman.conf
   proton-vpn-gtk-app
