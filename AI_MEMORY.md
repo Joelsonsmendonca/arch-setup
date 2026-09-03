@@ -26,19 +26,26 @@ abaixo são a referência do que ele executa.
 | Config + env (Ollama) | `~/.config/ai-memory/{config.toml,env}` |
 | Data-dir (SQLite, índice) | `~/.local/share/ai-memory/` |
 | Wiki (markdown, git) | `~/github/meu-cerebro-ia` ← `~/.local/share/ai-memory/wiki` (symlink) |
-| Servidor | `~/.config/systemd/user/ai-memory.service` (HTTP em `127.0.0.1:49374`) |
-| UI web | `http://127.0.0.1:49374/web/` (precisa de `--enable-web`, já na unit) |
+| Binário + hooks + units | pacote `ai-memory-bin` → `/usr/bin/ai-memory`, `/usr/share/ai-memory/hooks`, `/usr/lib/systemd/{system,user}/ai-memory.service` |
+| Servidor | unit **user** `ai-memory.service` (do pacote) — HTTP em `127.0.0.1:49374`. A unit **system** fica desligada (é pra deploy multi-user em `/var/lib/ai-memory`). |
+| UI web | `http://127.0.0.1:49374/web/` (a unit do pacote já passa `--enable-web`) |
 | Sync GitOps | `~/.config/systemd/user/ai-memory-sync.{path,timer,service}` + `~/.local/bin/ai-memory-sync` |
 
 ## 🚀 Configurar uma máquina NOVA (Nó)
 
-### Passo 1 — Instalar o binário
+### Passo 1 — Instalar `ai-memory-bin`
 ```bash
-yay -S ai-memory-bin          # traz também a unit systemd
-# ou, via release:
-curl -fsSL https://github.com/akitaonrails/ai-memory/releases/download/v2.0.1/ai-memory-linux-x86_64.tar.gz \
-  | sudo tar -xz -C /usr/local/bin/
+# via repo pessoal [joelson] (o CI compila do AUR e publica — ver aur/list.txt):
+sudo pacman -S ai-memory-bin
+
+# sem o repo pessoal e sem helper AUR — build direto do AUR:
+sudo pacman -S --needed base-devel git
+git clone https://aur.archlinux.org/ai-memory-bin.git /tmp/ai-memory-bin
+cd /tmp/ai-memory-bin && makepkg -si
 ```
+O pacote instala `/usr/bin/ai-memory`, os hooks em `/usr/share/ai-memory/hooks`
+e as units systemd. O `postinstall.sh` faz isto automaticamente (com fallback
+pro build do AUR).
 
 ### Passo 2 — Config + clonar o Cérebro
 ```bash
@@ -56,28 +63,13 @@ ln -sfn ~/github/meu-cerebro-ia ~/.local/share/ai-memory/wiki
 ```
 
 ### Passo 3 — Servidor systemd
-Se instalou por release (sem a unit do pacote), crie-a:
+A unit vem do pacote (`/usr/lib/systemd/user/ai-memory.service`). Só habilitar:
 ```bash
-mkdir -p ~/.config/systemd/user
-cat > ~/.config/systemd/user/ai-memory.service <<'EOF'
-[Unit]
-Description=ai-memory MCP server (HTTP, local)
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-EnvironmentFile=-%h/.config/ai-memory/env
-ExecStart=/usr/local/bin/ai-memory --data-dir %h/.local/share/ai-memory serve --transport http --enable-web
-Restart=on-failure
-RestartSec=2
-
-[Install]
-WantedBy=default.target
-EOF
-systemctl --user daemon-reload
 systemctl --user enable --now ai-memory.service
 ```
+Não habilitar a unit **system** (`sudo systemctl enable ai-memory`) numa máquina
+pessoal — ela roda um segundo servidor sobre `/var/lib/ai-memory`, e a regra é
+**um servidor por data-dir**.
 
 ### Passo 4 — Sincronizador bidirecional
 ```bash
