@@ -70,7 +70,7 @@ bash "$HOME/dotfiles/bootstrap.sh"
 msg "Configurando ai-memory e serviços do usuário"
 if ! command -v ai-memory >/dev/null 2>&1; then
   msg "Instalando binário do ai-memory..."
-  curl -fsSL https://github.com/akitaonrails/ai-memory/releases/download/v2.0.1/ai-memory-linux-x86_64.tar.gz | sudo tar -xz -C /usr/local/bin/ ai-memory 2>/dev/null || true
+  curl -fsSL https://github.com/akitaonrails/ai-memory/releases/download/v2.0.1/ai-memory-linux-x86_64.tar.gz | sudo tar -xz -C /usr/local/bin/
   sudo chmod +x /usr/local/bin/ai-memory 2>/dev/null || true
 fi
 
