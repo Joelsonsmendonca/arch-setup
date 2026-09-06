@@ -10,7 +10,7 @@ on:
       - 'postinstall.sh'
       - '.github/workflows/repo.yml'
   schedule:
-    - cron: '0 6 * * 1'          # segunda 06:00 UTC — captura updates do AUR
+    - cron: '0 6 * * *'          # todos os dias 06:00 UTC — captura updates do AUR
   workflow_dispatch:
 
 permissions:
