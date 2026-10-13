@@ -5,7 +5,7 @@
 
 pkgname=joelson-base
 pkgver=1.1.1
-pkgrel=4
+pkgrel=5
 pkgdesc="Meta-pacote com todos os apps do meu desktop Hyprland (comum a PC e notebook)"
 arch=('any')
 url="https://github.com/Joelsonsmendonca/arch-setup"
@@ -36,10 +36,13 @@ depends=(
 
   # --- Hyprland / Wayland desktop ---
   hyprland
+  hypridle              # bloqueio/ações por ociosidade (hypridle.conf nos dotfiles)
+  hyprlock
   uwsm
   xdg-desktop-portal-hyprland
   xdg-utils
   waybar
+  ai-usagebar-bin       # chips de uso de IA na waybar — vem do meu repo (aur/list.txt)
   swaync
   dunst
   kitty

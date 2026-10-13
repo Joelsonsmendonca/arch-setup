@@ -28,7 +28,7 @@ fi
 msg "Instalando pacotes da interface, fontes, ícones e ferramentas essenciais..."
 pkgs=(
   # Desktop & Wayland
-  hyprland kitty rofi waybar wofi fuzzel uwsm swaync sddm
+  hyprland hypridle hyprlock kitty rofi waybar wofi fuzzel uwsm swaync sddm
   qt5-wayland qt6-wayland polkit-kde-agent
 
   # Áudio & Mídia

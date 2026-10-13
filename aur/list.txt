@@ -4,3 +4,4 @@ vesktop-bin
 fastpotify
 brave-bin
 ai-memory-bin
+ai-usagebar-bin
