@@ -130,6 +130,13 @@ jobs:
               echo "::notice::$pkg ($ver) — reaproveitado do cache, sem recompilar"
               cp "$cdir"/*.pkg.tar.zst* out/x86_64/
             else
+              # fontes assinadas (validpgpkeys): o makepkg só verifica com a chave
+              # pública do autor no chaveiro do builder — importa do keyserver.
+              for k in $(awk -F' = ' '/^\tvalidpgpkeys = /{print $2}' "/tmp/$pkg/.SRCINFO"); do
+                su - builder -c "gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys $k" \
+                  || su - builder -c "gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys $k" \
+                  || echo "::warning::$pkg — não consegui importar a chave $k"
+              done
               su - builder -c "cd /tmp/$pkg && makepkg -s --noconfirm --nocheck --sign --key $KEYID"
               mkdir -p "$cdir"
               cp "/tmp/$pkg"/*.pkg.tar.zst* "$cdir"/
