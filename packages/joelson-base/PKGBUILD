@@ -5,7 +5,7 @@
 
 pkgname=joelson-base
 pkgver=1.1.1
-pkgrel=5
+pkgrel=6
 pkgdesc="Meta-pacote com todos os apps do meu desktop Hyprland (comum a PC e notebook)"
 arch=('any')
 url="https://github.com/Joelsonsmendonca/arch-setup"
@@ -94,6 +94,8 @@ depends=(
   brave-bin             # vem do meu próprio repo (build via aur/list.txt)
   code
   steam                 # requer [multilib] habilitado em /etc/pacman.conf
+  gamescope
+  lsfg-vk-bin           # vem do meu próprio repo (build via aur/list.txt)
   proton-vpn-gtk-app
   android-tools
   vesktop-bin           # vem do meu próprio repo (build via aur/list.txt)
@@ -105,7 +107,7 @@ depends=(
   docker
   docker-compose
   easyeffects
-  fastpotify
+  spotifast
   ai-memory-bin
   flatpak
   gobject-introspection
